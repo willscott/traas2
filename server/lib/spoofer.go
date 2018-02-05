@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/hex"
 	"errors"
-	"fmt"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -65,17 +64,39 @@ func SetupSpoofingSockets(config Config) error {
 	return nil
 }
 
-func SpoofIPv4Message(packet []byte, realSrc net.IP, dest net.IP) error {
-	// Make sure destination is okay
-	decoded := []gopacket.LayerType{}
-	if err := ipv4Parser.DecodeLayers(packet, &decoded); len(decoded) != 1 {
+func SpoofTCPMessage(src net.IP, dest net.IP, request *layers.TCP, requestLength uint16, ttl byte, payload []byte) error {
+	// Send legit packet.
+	buf := gopacket.NewSerializeBuffer()
+	opts := gopacket.SerializeOptions{
+		ComputeChecksums: true,
+		FixLengths:       true,
+	}
+	ip := &layers.IPv4{
+		Version:  4,
+		IHL:      5,
+		Id:       ttl,
+		TTL:      ttl,
+		Protocol: 6,
+		SrcIP:    src,
+		DstIP:    dest,
+		Flags:    layers.IPv4DontFragment,
+	}
+	tcp := &layers.TCP{
+		SrcPort: request.DstPort,
+		DstPort: request.SrcPort,
+		Seq:     request.Ack,
+		Ack:     request.Seq + requestLength,
+		PSH:     true,
+		ACK:     true,
+		Window:  122,
+	}
+	if err := gopacket.SerializeLayers(buf, opts, ip, tcp, payload); err != nil {
 		return err
 	}
-	if !dest.Equal(ipv4Layer.DstIP) {
-		log.Println("Intended packet was to", ipv4Layer.DstIP, "not the authorized", dest)
-		return errors.New("INVALID DESTINATION")
-	}
+	return SpoofIPv4Message(buf.Bytes())
+}
 
+func SpoofIPv4Message(packet []byte) error {
 	if TestSpoofChannel != nil {
 		TestSpoofChannel <- packet
 		return nil
@@ -85,6 +106,5 @@ func SpoofIPv4Message(packet []byte, realSrc net.IP, dest net.IP) error {
 		log.Println("Couldn't send packet", err)
 		return err
 	}
-	log.Println(fmt.Sprintf("%d bytes sent to %v as %v from %v", len(packet), dest, ipv4Layer.SrcIP, realSrc))
 	return nil
 }

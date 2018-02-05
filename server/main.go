@@ -4,17 +4,19 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/willscott/sp3/server/lib"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/willscott/traas2/server/lib"
 )
 
 var (
 	configFile *string = flag.String("config", "", "File with server configuration")
 	initFlag   *bool   = flag.Bool("init", false, "if true, setup new configuration")
 	port       *int    = flag.Int("port", 8080, "TCP port for connections")
+	path       *string = flag.String("path", "/", "prefix for web requests")
 	device     *string = flag.String("device", "eth0", "inet device for pcap to use")
 	srcMAC     *string = flag.String("srcMAC", "000000000000", "Ethernet SRC for sending")
 	dstMAC     *string = flag.String("dstMAC", "000000000000", "Ethernet DST for sending")
@@ -33,7 +35,7 @@ func main() {
 		if *initFlag {
 			os.Mkdir(configDir, 0700)
 		}
-		*configFile = filepath.Join(configDir, "sp3.json")
+		*configFile = filepath.Join(configDir, "traas.json")
 	}
 	if *initFlag {
 		configHandle, err := os.OpenFile(*configFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
@@ -42,11 +44,11 @@ func main() {
 			return
 		}
 		defaultConfig, _ := json.Marshal(server.Config{
-			Port:               *port,
-			Device:             *device,
-			Src:                *srcMAC,
-			Dst:                *dstMAC,
-			PathReflectionFile: "pathreflection.json",
+			Port:   *port,
+			Path:   *path,
+			Device: *device,
+			Src:    *srcMAC,
+			Dst:    *dstMAC,
 		})
 		if _, err := configHandle.Write(defaultConfig); err != nil {
 			log.Fatalf("Failed to write default config: %s", err)
@@ -73,8 +75,8 @@ func main() {
 	if config.Device == "" {
 		config.Device = "eth0"
 	}
-	if config.PathReflectionFile == "" {
-		config.PathReflectionFile = "pathreflection.json"
+	if config.Path == "" {
+		config.Path = "/"
 	}
 
 	fmt.Printf("Using config %+v \n", config)

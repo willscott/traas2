@@ -1,47 +1,24 @@
-package sp3
+package traas2
 
-type AuthenticationMethod int
+import "net"
 
-const (
-	WEBSOCKET AuthenticationMethod = iota
-	STUNINJECTION
-	PATHREFLECTION
-)
-
-type Status int
-
-const (
-	OKAY         Status = iota
-	UNAUTHORIZED        // Sender isn't authorized to send to that destination
-	UNSUPPORTED         // Server doesn't support the requested AuthenticationMethod
-	INVALID             // Server failed to parse the message
-)
-
-type State int
-
-const (
-	SENDERHELLO State = iota // Waiting for client Hello message.
-	HELLORECEIVED
-	AUTHORIZED // Acceptable ClientAuhtorization received.
-)
-
-type SenderHello struct {
-	DestinationAddress    string
-	AuthenticationMethod  AuthenticationMethod
-	AuthenticationOptions []byte
+type Probe struct {
+	Payload []byte
+	MinHop  uint8
+	MaxHop  uint8
 }
 
-type ServerMessage struct {
-	Status    Status
-	Challenge string
-	Sent      []byte
+// Hop represents the traceroute at a single TTL
+type Hop struct {
+	TTL uint8
+	IP  net.IP
+	Len uint16
 }
 
-type SenderAuthorization struct {
-	DestinationAddress string
-	Challenge          string
-}
-
-type SenderMessage struct {
-	Packet []byte
+// Trace represents the stored state for an ongoing traceroute
+type Trace struct {
+	To       net.IP
+	Sent     uint
+	Recorded uint16
+	Hops     [64]Hop
 }

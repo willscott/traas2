@@ -24,4 +24,3 @@ _testmain.go
 *.prof
 
 /server/server
-/examples/echo/echo

@@ -2,62 +2,27 @@ package server
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"sync"
 
-	"github.com/gorilla/websocket"
-	"github.com/pborman/uuid"
-	"github.com/willscott/sp3"
+	"github.com/willscott/traas2"
 )
 
 type Server struct {
 	sync.Mutex
-	upgrader     websocket.Upgrader
-	webServer    http.Server
-	config       Config
-	destinations map[string]*websocket.Conn
-	clientHosts  map[string]*websocket.Conn
+	webServer http.Server
+	config    Config
 }
 
 type Config struct {
-	Port               int
-	Device             string
-	Src                string
-	Dst                string
-	PathReflectionFile string
-}
-
-func (s Server) Authorize(hello sp3.SenderHello) (challenge string, err error) {
-	if hello.AuthenticationMethod == sp3.PATHREFLECTION {
-		state := &PathReflectionState{}
-		if err = json.Unmarshal(hello.AuthenticationOptions, state); err != nil {
-			return "", err
-		}
-		if !PathReflectionServerTrusted(s.config, state) {
-			return "", errors.New("Untrusted Server")
-		}
-		return SendPathReflectionChallenge(s.config, state)
-	} else if hello.AuthenticationMethod == sp3.WEBSOCKET {
-		if val, ok := s.clientHosts[hello.DestinationAddress]; ok {
-			resp := sp3.ServerMessage{
-				Status:    sp3.OKAY,
-				Challenge: uuid.New(),
-			}
-			dat, _ := json.Marshal(resp)
-			if err = val.WriteMessage(websocket.TextMessage, dat); err != nil {
-				return "", err
-			}
-			return resp.Challenge, nil
-		}
-
-		return "", errors.New("No active connection from requested destination.")
-	} else {
-		return "", errors.New("UNSUPPORTED")
-	}
+	Port   int
+	Path   string
+	Device string
+	Src    string
+	Dst    string
 }
 
 func (s Server) Cleanup(remoteAddr string) {
@@ -81,13 +46,6 @@ func (s Server) Cleanup(remoteAddr string) {
 	}
 }
 
-func IPHandler(server *Server) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		addrHost, _, _ := net.SplitHostPort(r.RemoteAddr)
-		fmt.Fprintf(w, "externalip({ip:\"%s\"})", addrHost)
-	})
-}
-
 func SocketHandler(server *Server) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c, err := server.upgrader.Upgrade(w, r, nil)
@@ -104,7 +62,7 @@ func SocketHandler(server *Server) http.Handler {
 		if _, ok := server.clientHosts[addrHost]; !ok {
 			server.clientHosts[addrHost] = c
 		}
-		senderState := sp3.SENDERHELLO
+		senderState := traas2.SENDERHELLO
 		var sendStream chan<- []byte
 		challenge := ""
 
@@ -115,8 +73,8 @@ func SocketHandler(server *Server) http.Handler {
 				log.Println("read err:", err)
 				break
 			}
-			if senderState == sp3.SENDERHELLO && msgType == websocket.TextMessage {
-				hello := sp3.SenderHello{}
+			if senderState == traas2.SENDERHELLO && msgType == websocket.TextMessage {
+				hello := traas2.SenderHello{}
 				err := json.Unmarshal(msg, &hello)
 				if err != nil {
 					log.Println("Hello err:", err)
@@ -126,17 +84,17 @@ func SocketHandler(server *Server) http.Handler {
 				chal, err := server.Authorize(hello)
 				if err != nil {
 					log.Println("Authorize err:", err)
-					resp := sp3.ServerMessage{
-						Status: sp3.UNAUTHORIZED,
+					resp := traas2.ServerMessage{
+						Status: traas2.UNAUTHORIZED,
 					}
 					dat, _ := json.Marshal(resp)
 					c.WriteMessage(websocket.TextMessage, dat)
 					break
 				}
 				challenge = chal
-				senderState = sp3.HELLORECEIVED
+				senderState = traas2.HELLORECEIVED
 				continue
-			} else if senderState == sp3.HELLORECEIVED && msgType == websocket.TextMessage {
+			} else if senderState == traas2.HELLORECEIVED && msgType == websocket.TextMessage {
 				auth := sp3.SenderAuthorization{}
 				err := json.Unmarshal(msg, &auth)
 				if err != nil {
@@ -159,15 +117,15 @@ func SocketHandler(server *Server) http.Handler {
 					log.Printf("Authorized %v to send to %v.", r.RemoteAddr, auth.DestinationAddress)
 				} else {
 					log.Println("Bad Challenge from", r.RemoteAddr, " expected ", auth.Challenge, " but got ", challenge)
-					resp := sp3.ServerMessage{
-						Status: sp3.UNAUTHORIZED,
+					resp := traas2.ServerMessage{
+						Status: traas2.UNAUTHORIZED,
 					}
 					dat, _ := json.Marshal(resp)
 					c.WriteMessage(websocket.TextMessage, dat)
 					break
 				}
 				continue
-			} else if senderState == sp3.AUTHORIZED && msgType == websocket.BinaryMessage {
+			} else if senderState == traas2.AUTHORIZED && msgType == websocket.BinaryMessage {
 				// Main forwarding loop.
 				sendStream <- msg
 				continue
@@ -188,13 +146,9 @@ func NewServer(conf Config) *Server {
 
 	addr := fmt.Sprintf("0.0.0.0:%d", conf.Port)
 	mux := http.NewServeMux()
-	mux.Handle("/sp3", SocketHandler(server))
+	mux.Handle("/traas", SocketHandler(server))
 	// By default serve a demo site.
 	mux.Handle("/client/", http.StripPrefix("/client/", http.FileServer(http.Dir("../demo"))))
-	mux.Handle("/ip.js", IPHandler(server))
-	mux.Handle("/pathreflection.json", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, conf.PathReflectionFile)
-	}))
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/client/", 301)
 	}))
