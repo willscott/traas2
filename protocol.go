@@ -2,6 +2,7 @@ package traas2
 
 import "net"
 
+// Probe represents the parameters for sending traceorute packets
 type Probe struct {
 	Payload []byte
 	MinHop  uint8

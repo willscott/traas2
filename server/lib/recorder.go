@@ -12,7 +12,8 @@ import (
 	"github.com/willscott/traas2"
 )
 
-// Recorder represents a icmp / tcp listener
+// Recorder is the state of the pcap listener.
+// Use begintrace / endTrace to interact with it, and let it know which packets it's watching for.
 type Recorder struct {
 	handle   *pcap.Handle
 	parser   *gopacket.DecodingLayerParser
