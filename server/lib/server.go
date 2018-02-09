@@ -6,8 +6,11 @@ import (
 	"net"
 	"net/http"
 	"sync"
+
+	"github.com/willscott/traas2"
 )
 
+// Server contains the state of the active server
 type Server struct {
 	sync.Mutex
 	webServer http.Server
@@ -15,14 +18,16 @@ type Server struct {
 	config    Config
 }
 
+// Config stores longterm state of how the server behaves
 type Config struct {
-	Port   int
-	Path   string
-	Device string
-	Src    string
-	Dst    string
+	Port   int    // What port to listen on
+	Path   string // What path does traas live at
+	Device string // What network interface is listened to
+	Src    string // Ethernet address of the local network interface
+	Dst    string // Ethernet address of the gateway network interface
 }
 
+// Cleanup ends traces
 func (s Server) Cleanup(remoteAddr net.IP) {
 	s.recorder.EndTrace(remoteAddr)
 }
@@ -48,15 +53,36 @@ func EndHandler(path string, server *Server) http.Handler {
 	})
 }
 
+func ErrorHandler(server *Server) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Error."))
+	})
+}
+
 func NewServer(conf Config) *Server {
+	redirect := "HTTP/1.1 302 Found\r\n" +
+		"Location: ./done\r\n" +
+		"Connection: Keep-Alive\r\n" +
+		"Content-Length: 0\r\n\r\n"
+	probe := &traas2.Probe{
+		Payload: []byte(redirect),
+		MinHop:  4,
+		MaxHop:  32,
+	}
+	recorder, err := MakeRecorder(conf.Device, uint16(conf.Port), probe)
+	if err != nil {
+		return nil
+	}
 	server := &Server{
-		config: conf,
+		config:   conf,
+		recorder: recorder,
 	}
 
 	addr := fmt.Sprintf("0.0.0.0:%d", conf.Port)
 	mux := http.NewServeMux()
 	mux.Handle("/"+conf.Path+"/start", StartHandler(conf.Path, server))
 	mux.Handle("/"+conf.Path+"/done", EndHandler(conf.Path, server))
+	mux.Handle("/"+conf.Path+"/error", ErrorHandler(server))
 	// By default serve a demo site.
 	mux.Handle("/"+conf.Path+"/client/", http.StripPrefix("/client/", http.FileServer(http.Dir("../demo"))))
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

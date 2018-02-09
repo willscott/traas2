@@ -40,6 +40,7 @@ func SetupSpoofingSockets(config Config) error {
 	return nil
 }
 
+// SpoofTCPMessage constructs and sends a tcp message sent in the same stream as 'request' with a specified payload.
 func SpoofTCPMessage(src net.IP, dest net.IP, request *layers.TCP, requestLength uint16, ttl byte, payload []byte) error {
 	// Send legit packet.
 	buf := gopacket.NewSerializeBuffer()
