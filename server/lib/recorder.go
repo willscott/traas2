@@ -98,6 +98,7 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 		}
 		//tcp
 		if handler, ok := r.handlers.Get(ipFrame.SrcIP.String()); ok {
+			fmt.Printf("Saw Probe req for IP that is under trace. spoofing 302's.\n")
 			trace := handler.(*traas2.Trace)
 			if trace.Sent == 0 {
 				tcpFrame := packet.Layer(layers.LayerTypeTCP).(*layers.TCP)

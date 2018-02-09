@@ -3,9 +3,11 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/willscott/traas2"
 )
@@ -27,36 +29,58 @@ type Config struct {
 	Dst    string // Ethernet address of the gateway network interface
 }
 
-// Cleanup ends traces
-func (s Server) Cleanup(remoteAddr net.IP) {
-	s.recorder.EndTrace(remoteAddr)
+func (s *Server) StartHandler(w http.ResponseWriter, r *http.Request) {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	ip := net.ParseIP(host)
+	if err != nil || ip == nil {
+		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
+		return
+	}
+	s.recorder.BeginTrace(ip)
+	http.Redirect(w, r, "/"+s.config.Path+"/probe", 302)
 }
 
-func StartHandler(path string, server *Server) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		server.recorder.BeginTrace(net.ParseIP(r.RemoteAddr))
-		http.Redirect(w, r, "/"+path+"/probe", 302)
-	})
-}
+func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	ip := net.ParseIP(host)
+	if err != nil || ip == nil {
+		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
+		return
+	}
 
-func EndHandler(path string, server *Server) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if t := server.recorder.GetTrace(net.ParseIP(r.RemoteAddr)); t != nil {
-			server.recorder.EndTrace(net.ParseIP(r.RemoteAddr))
-			if b, err := json.Marshal(t); err == nil {
-				w.Write(b)
-				//todo: log
-			} else {
-				http.Redirect(w, r, "/"+path+"/error", 302)
-			}
+	if t := s.recorder.GetTrace(ip); t != nil {
+		s.recorder.EndTrace(ip)
+		if b, err := json.Marshal(t); err == nil {
+			w.Write(b)
+			log.Printf("End Handler from %v: %s\n", ip, b)
+		} else {
+			http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
 		}
-	})
+	}
 }
 
-func ErrorHandler(server *Server) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Error."))
-	})
+func (s *Server) ProbeHandler(w http.ResponseWriter, r *http.Request) {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	ip := net.ParseIP(host)
+	if err != nil || ip == nil {
+		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
+		return
+	}
+
+	closeNotifier, ok := w.(http.CloseNotifier)
+	if !ok {
+		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
+	}
+	select {
+	case <-time.After(time.Second * 5):
+		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
+	case <-closeNotifier.CloseNotify():
+		return
+	}
+}
+
+func (s *Server) ErrorHandler(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("Error."))
 }
 
 func NewServer(conf Config) *Server {
@@ -80,14 +104,13 @@ func NewServer(conf Config) *Server {
 
 	addr := fmt.Sprintf("0.0.0.0:%d", conf.Port)
 	mux := http.NewServeMux()
-	mux.Handle("/"+conf.Path+"/start", StartHandler(conf.Path, server))
-	mux.Handle("/"+conf.Path+"/done", EndHandler(conf.Path, server))
-	mux.Handle("/"+conf.Path+"/error", ErrorHandler(server))
+	mux.HandleFunc("/"+conf.Path+"/start", server.StartHandler)
+	mux.HandleFunc("/"+conf.Path+"/probe", server.ProbeHandler)
+	mux.HandleFunc("/"+conf.Path+"/done", server.EndHandler)
+	mux.HandleFunc("/"+conf.Path+"/error", server.ErrorHandler)
 	// By default serve a demo site.
 	mux.Handle("/"+conf.Path+"/client/", http.StripPrefix("/"+conf.Path+"/client/", http.FileServer(http.Dir("../demo"))))
-	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/"+conf.Path+"/client/", 301)
-	}))
+	//	mux.Handle("/", http.RedirectHandler("/"+conf.Path+"/client", 302))
 
 	webServer := &http.Server{Addr: addr, Handler: mux}
 
