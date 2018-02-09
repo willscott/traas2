@@ -15,7 +15,8 @@ import (
 var (
 	configFile = flag.String("config", "", "File with server configuration")
 	initFlag   = flag.Bool("init", false, "if true, setup new configuration")
-	port       = flag.Int("port", 8080, "TCP port for connections")
+	servePort  = flag.Int("port", 8080, "TCP port for web socket")
+	listenPort = flag.Int("lport", 8080, "TCP port for incoming connection listening")
 	path       = flag.String("path", "traas", "prefix for web requests")
 	device     = flag.String("device", "eth0", "inet device for pcap to use")
 	srcMAC     = flag.String("srcMAC", "000000000000", "Ethernet SRC for sending")
@@ -44,11 +45,12 @@ func main() {
 			return
 		}
 		defaultConfig, _ := json.Marshal(server.Config{
-			Port:   *port,
-			Path:   *path,
-			Device: *device,
-			Src:    *srcMAC,
-			Dst:    *dstMAC,
+			ServePort:  uint16(*servePort),
+			ListenPort: uint16(*listenPort),
+			Path:       *path,
+			Device:     *device,
+			Src:        *srcMAC,
+			Dst:        *dstMAC,
 		})
 		if _, err := configHandle.Write(defaultConfig); err != nil {
 			log.Fatalf("Failed to write default config: %s", err)
@@ -69,8 +71,11 @@ func main() {
 		return
 	}
 
-	if config.Port == 0 {
-		config.Port = 8080
+	if config.ServePort == 0 {
+		config.ServePort = 8080
+	}
+	if config.ListenPort == 0 {
+		config.ListenPort = 8080
 	}
 	if config.Device == "" {
 		config.Device = "eth0"

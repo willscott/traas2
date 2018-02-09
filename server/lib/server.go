@@ -22,11 +22,12 @@ type Server struct {
 
 // Config stores longterm state of how the server behaves
 type Config struct {
-	Port   int    // What port to listen on
-	Path   string // What path does traas live at
-	Device string // What network interface is listened to
-	Src    string // Ethernet address of the local network interface
-	Dst    string // Ethernet address of the gateway network interface
+	ServePort  uint16 // What port for webServer
+	ListenPort uint16 // What port for pcap
+	Path       string // What path does traas live at
+	Device     string // What network interface is listened to
+	Src        string // Ethernet address of the local network interface
+	Dst        string // Ethernet address of the gateway network interface
 }
 
 func (s *Server) StartHandler(w http.ResponseWriter, r *http.Request) {
@@ -93,7 +94,7 @@ func NewServer(conf Config) *Server {
 		MinHop:  4,
 		MaxHop:  32,
 	}
-	recorder, err := MakeRecorder(conf.Device, uint16(conf.Port), probe)
+	recorder, err := MakeRecorder(conf.Device, conf.ListenPort, probe)
 	if err != nil {
 		return nil
 	}
@@ -102,7 +103,7 @@ func NewServer(conf Config) *Server {
 		recorder: recorder,
 	}
 
-	addr := fmt.Sprintf("0.0.0.0:%d", conf.Port)
+	addr := fmt.Sprintf("0.0.0.0:%d", conf.ServePort)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/"+conf.Path+"/start", server.StartHandler)
 	mux.HandleFunc("/"+conf.Path+"/probe", server.ProbeHandler)
