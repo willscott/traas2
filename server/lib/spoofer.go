@@ -66,6 +66,7 @@ func SpoofTCPMessage(src net.IP, dest net.IP, request *layers.TCP, requestLength
 		ACK:     true,
 		Window:  122,
 	}
+	tcp.SetNetworkLayerForChecksum(ip)
 	if err := gopacket.SerializeLayers(buf, opts, ip, tcp, gopacket.Payload(payload)); err != nil {
 		return err
 	}
