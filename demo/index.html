@@ -3,134 +3,24 @@
   <head>
     <title>SP^3 Demo</title>
     <meta charset="utf-8" />
-    <script src="packeteditor.js"></script>
-    <script src="conversion.js"></script>
-    <script type="text/javascript">
-      var fields = [
-        new ComputedField("Len", 4, 4, totalLength),
-        new ComputedField("Chksum", 20, 4, ipChecksum),
-        new PacketField("Src IP", 24, 8, hex2ip, ip2hex),
-        new PacketField("Dest IP", 32, 8, hex2ip, ip2hex),
-        new PacketField("Src Port", 40, 4, hex2port, port2hex),
-        new PacketField("Dest Port", 44, 4, hex2port, port2hex),
-        new ComputedField("Len", 48, 4, udpLength),
-        new ComputedField("Chksum", 52, 4, udpChecksum),
-        new VarLenField("Payload", 56, hex2ascii, ascii2hex)
-      ];
-      fields[8].background = '#cff';
-      var rendered = false;
-      window.addEventListener('load', function () {
-        var editor = new PacketEditor(document.getElementById("packet"), fields, 16);
-        if (rendered) {
-          rendered();
-        }
-        rendered = true;
-        document.getElementById("send").addEventListener("click", doSend, true);
-        document.getElementById("server").value = "ws://" + location.host + "/sp3";
-      }, true);
-      function externalip(dat) {
-        document.getElementById("destination").value = dat.ip;
-        if (rendered) {
-          fields[3].set(fields[3].toHex(dat.ip));
-        } else {
-          rendered = externalip.bind(this, dat);
-        }
-      }
-      var connectState = 0;
-      function doSend() {
-        var socket = new WebSocket(document.getElementById("server").value);
-        socket.onmessage = function(msg) {
-          var data = JSON.parse(msg.data);
-          if (data.Status === 0 && connectState === 1) { //okay
-            console.log("Authorization Challenged", data);
-            var ip = document.getElementById("destination").value;
-            socket.send(JSON.stringify({
-              DestinationAddress: ip,
-              Challenge: data.Challenge
-            }));
-            connectState = 2;
-          } else if (data.Status === 0 && connectState === 2) {
-            console.log("Authorization Complete");
-            // Authorized and ready to send.
-            var buf = hext2AB(document.getElementById("packet").value);
-            socket.send(buf.buffer);
-            socket.close();
-          } else if (data.Status > 0) { //error
-            console.error("Server Error: " + data.Status);
-            return;
-          }
-        };
-        socket.onopen = function () {
-          connectState = 1;
-          var ip = document.getElementById("destination").value;
-          socket.send(JSON.stringify({
-            DestinationAddress: ip,
-            AuthenticationMethod: 0
-          }));
-        };
-      }
-    </script>
-    <style type="text/css">
-    .editorLine {
-      display:block;
-      font-size: 2em;
-      padding-top: 0.8em;
-    }
-    </style>
   </head>
   <body>
     <header>
-      <h1>SP<sup>3</sup></h1>
-      <h3>A Simple, Practical, and Safe Packet Spoofing Protocol</h3>
+      <h1>TraceRoute As A Service<sup>2</sup></h1>
+      <h3>Make request. Get Traceroute</h3>
     </header>
     <section>
-      SP3 lets you send spoofed packets, even though your machine probably can't
-      do that itself. Since that can be a bit dangerous, sp<sup>3</sup> is a protocol which
-      only will send spoofed packets when the destination <code>client</code>
-      says in advance that it wants to receive them.
+      Traas provides an interface where a client can make an HTTP request to the
+      server, and will receive a response indicating the reverse path traceoute
+      of the router hops in between itself and the remote server. Of interest
+      is that the traceroute performed is a TCP traceroute on the connection
+      used for the HTTP connection, and as such may provide insight behind
+      NAT devices back to the source of client requests. This is especially
+      useful in cases with socks or http proxies where http requests can be
+      induced, but icmp requests cannot.
     </section>
     <section>
-      <h2>Learn</h2>
-      <p>
-        The SP<sup>3</sup> code lives on <a href="https://github.com/willscott/sp3">github</a>.
-        The readme explains the design of the system, and
-        <a href="https://github.com/willscott/sp3/blob/master/doc/PROTOCOL.md">protocol.md</a>
-        describes the wire protocol for integrating sp<sup>3</sup> into your own application.
-      </p>
+      <h2>traceroute</h2>
     </section>
-    <section>
-      <h2>Demo</h2>
-      <p>
-        This demo allows you to send packets to yourself from an arbitrary source.
-        It uses our reference SP<sup>3</sup> server to send you a simple UDP
-        message, which you can see if you have a publicly facing machine.
-      </p>
-      <p style="color:red">
-        Note: This demo probably won't go through NAT boxes. It will only
-        work if your machine has its own public IPv4 Address.
-      </p>
-      <p>
-        To see the packet, choose a port and listen for incoming traffic. You can
-        do this with netcat on linux by invoking:
-        <code>
-          nc -u -l 8080
-        </code>.
-        The packet below will be sent to the remote IP we detected when you visited
-        this page. You can change it though as long as the destination also has a
-        connection open to our server - for the intricacies of the protcol, look at the
-        protocol.md link above. When you send the packet, you will hopefully see the
-        contents, 'Hello World', output on your terminal.
-      </p>
-    </section>
-    <section id="demo">
-      <h2>Packet to Spoof</h2>
-      <textarea id="packet">4500002914c800004011d00c0a00071c80d00404d7981f900015322f48656c6c6f20576f726c64210a</textarea>
-      <hr>
-      <label for="destination">Destination to request access to:</label><input type="text" id="destination" value="" /><br />
-      <label for="server">SP<sup>3</sup> Server:</label><input type="text" id="server" value="ws://localhost:8080" /><br />
-      <input type="reset" value="Reset" />
-      <input id="send" type="button" value="Send" />
-    </section>
-    <script async type="text/javascript" src="/ip.js"></script>
   </body>
 </html>

@@ -13,13 +13,13 @@ import (
 )
 
 var (
-	configFile *string = flag.String("config", "", "File with server configuration")
-	initFlag   *bool   = flag.Bool("init", false, "if true, setup new configuration")
-	port       *int    = flag.Int("port", 8080, "TCP port for connections")
-	path       *string = flag.String("path", "/", "prefix for web requests")
-	device     *string = flag.String("device", "eth0", "inet device for pcap to use")
-	srcMAC     *string = flag.String("srcMAC", "000000000000", "Ethernet SRC for sending")
-	dstMAC     *string = flag.String("dstMAC", "000000000000", "Ethernet DST for sending")
+	configFile = flag.String("config", "", "File with server configuration")
+	initFlag   = flag.Bool("init", false, "if true, setup new configuration")
+	port       = flag.Int("port", 8080, "TCP port for connections")
+	path       = flag.String("path", "traas", "prefix for web requests")
+	device     = flag.String("device", "eth0", "inet device for pcap to use")
+	srcMAC     = flag.String("srcMAC", "000000000000", "Ethernet SRC for sending")
+	dstMAC     = flag.String("dstMAC", "000000000000", "Ethernet DST for sending")
 )
 
 func main() {
@@ -64,7 +64,7 @@ func main() {
 	}
 
 	var config server.Config
-	if err := json.Unmarshal(configString, &config); err != nil {
+	if err = json.Unmarshal(configString, &config); err != nil {
 		log.Fatalf("Couldn't parse config: %s", err)
 		return
 	}
@@ -76,7 +76,7 @@ func main() {
 		config.Device = "eth0"
 	}
 	if config.Path == "" {
-		config.Path = "/"
+		config.Path = "traas"
 	}
 
 	fmt.Printf("Using config %+v \n", config)

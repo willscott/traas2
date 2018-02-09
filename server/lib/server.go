@@ -84,7 +84,7 @@ func NewServer(conf Config) *Server {
 	mux.Handle("/"+conf.Path+"/done", EndHandler(conf.Path, server))
 	mux.Handle("/"+conf.Path+"/error", ErrorHandler(server))
 	// By default serve a demo site.
-	mux.Handle("/"+conf.Path+"/client/", http.StripPrefix("/client/", http.FileServer(http.Dir("../demo"))))
+	mux.Handle("/"+conf.Path+"/client/", http.StripPrefix("/"+conf.Path+"/client/", http.FileServer(http.Dir("../demo"))))
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/"+conf.Path+"/client/", 301)
 	}))
