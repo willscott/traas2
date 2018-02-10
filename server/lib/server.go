@@ -63,14 +63,23 @@ func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
 		return
 	}
+	closeNotifier, ok := w.(http.CloseNotifier)
+	if !ok {
+		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
+	}
 
 	if t := s.recorder.GetTrace(ip); t != nil {
-		s.recorder.EndTrace(ip)
-		if b, err := json.Marshal(t); err == nil {
-			w.Write(b)
-			log.Printf("End Handler from %v: %s\n", ip, b)
-		} else {
-			http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
+		// Wait an extra second for the trace to get filled in.
+		select {
+		case <-time.After(time.Second * 1):
+			t = s.recorder.GetTrace(ip)
+			s.recorder.EndTrace(ip)
+			if b, err := json.Marshal(t); err == nil {
+				w.Write(b)
+				log.Printf("End Handler from %v: %s\n", ip, b)
+			}
+		case <-closeNotifier.CloseNotify():
+			return
 		}
 	}
 }
@@ -102,14 +111,14 @@ func (s *Server) ErrorHandler(w http.ResponseWriter, r *http.Request) {
 func NewServer(conf Config) *Server {
 	redirect := "HTTP/1.1 302 Found\r\n" +
 		"Location: ./done\r\n" +
-		"Connection: Keep-Alive\r\n" +
+		"Connection: Close\r\n" +
 		"Content-Length: 0\r\n\r\n"
 	probe := &traas2.Probe{
 		Payload: []byte(redirect),
 		MinHop:  4,
 		MaxHop:  32,
 	}
-	recorder, err := MakeRecorder(conf.Device, conf.ListenPort, probe)
+	recorder, err := MakeRecorder(conf.Device, conf.Path, conf.ListenPort, probe)
 	if err != nil {
 		return nil
 	}

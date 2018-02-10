@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
@@ -16,12 +17,13 @@ import (
 // Use begintrace / endTrace to interact with it, and let it know which packets it's watching for.
 type Recorder struct {
 	handle   *pcap.Handle
+	path     string
 	parser   *gopacket.DecodingLayerParser
 	handlers cmap.ConcurrentMap
 	probe    *traas2.Probe
 }
 
-func MakeRecorder(netDev string, port uint16, probe *traas2.Probe) (*Recorder, error) {
+func MakeRecorder(netDev string, path string, port uint16, probe *traas2.Probe) (*Recorder, error) {
 	handle, err := pcap.OpenLive(netDev, 2048, false, pcap.BlockForever)
 	if err != nil {
 		return nil, err
@@ -49,7 +51,7 @@ func MakeRecorder(netDev string, port uint16, probe *traas2.Probe) (*Recorder, e
 	src := addrs[addrIdx].(*net.IPNet).IP
 	fmt.Printf("Using source of %v\n", src)
 
-	recorder := &Recorder{handle, ipv4Parser, cmap.New(), probe}
+	recorder := &Recorder{handle, path, ipv4Parser, cmap.New(), probe}
 
 	fmt.Printf("dst host %s and (icmp[0:1] == 0x0b or (tcp dst port %d))", src.String(), port)
 	err = handle.SetBPFFilter(fmt.Sprintf("dst host %s and (icmp[0:1] == 0x0b or (tcp dst port %d))", src.String(), port))
@@ -100,10 +102,18 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 		//tcp
 		fmt.Printf("Saw ip packet from %v\n", ipFrame.SrcIP.String())
 		if handler, ok := r.handlers.Get(ipFrame.SrcIP.String()); ok {
-			fmt.Printf("Saw Probe req for IP that is under trace. spoofing 302's.\n")
 			trace := handler.(*traas2.Trace)
 			if trace.Sent == 0 {
+				// Make sure this is the request for GET /<path/probe
 				tcpFrame := packet.Layer(layers.LayerTypeTCP).(*layers.TCP)
+				if tcpFrame == nil {
+					continue
+				}
+				payload := tcpFrame.Payload
+				if !bytes.HasPrefix(payload, []byte("GET /"+r.path+"/probe")) {
+					continue
+				}
+				fmt.Printf("Saw Probe req for IP that is under trace. spoofing 302's.\n")
 				for i := r.probe.MinHop; i < r.probe.MaxHop; i++ {
 					SpoofTCPMessage(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), i, r.probe.Payload)
 				}
