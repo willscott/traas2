@@ -51,6 +51,7 @@ func MakeRecorder(netDev string, port uint16, probe *traas2.Probe) (*Recorder, e
 
 	recorder := &Recorder{handle, ipv4Parser, cmap.New(), probe}
 
+	fmt.Printf("dst host %s and (icmp[0:1] == 0x0b or (tcp dst port %d))", src.String(), port)
 	err = handle.SetBPFFilter(fmt.Sprintf("dst host %s and (icmp[0:1] == 0x0b or (tcp dst port %d))", src.String(), port))
 	if err != nil {
 		panic(err)
@@ -97,6 +98,7 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 			continue
 		}
 		//tcp
+		fmt.Printf("Saw ip packet from %v\n", ipFrame.SrcIP.String())
 		if handler, ok := r.handlers.Get(ipFrame.SrcIP.String()); ok {
 			fmt.Printf("Saw Probe req for IP that is under trace. spoofing 302's.\n")
 			trace := handler.(*traas2.Trace)

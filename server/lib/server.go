@@ -28,23 +28,38 @@ type Config struct {
 	Device     string // What network interface is listened to
 	Src        string // Ethernet address of the local network interface
 	Dst        string // Ethernet address of the gateway network interface
+	IPHeader   string // If client ips should be checked from e.g. an x-forwarded-for header
+}
+
+func getIP(header string, r *http.Request) net.IP {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return nil
+	}
+
+	if header != "" {
+		if h := r.Header.Get(header); h != "" {
+			host = h
+		}
+	}
+	ip := net.ParseIP(host)
+	return ip
 }
 
 func (s *Server) StartHandler(w http.ResponseWriter, r *http.Request) {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	ip := net.ParseIP(host)
-	if err != nil || ip == nil {
+	ip := getIP(s.config.IPHeader, r)
+	if ip == nil {
 		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
 		return
 	}
+	log.Printf("Beginning trace for %v\n", ip)
 	s.recorder.BeginTrace(ip)
 	http.Redirect(w, r, "/"+s.config.Path+"/probe", 302)
 }
 
 func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	ip := net.ParseIP(host)
-	if err != nil || ip == nil {
+	ip := getIP(s.config.IPHeader, r)
+	if ip == nil {
 		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
 		return
 	}
@@ -61,9 +76,8 @@ func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) ProbeHandler(w http.ResponseWriter, r *http.Request) {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	ip := net.ParseIP(host)
-	if err != nil || ip == nil {
+	ip := getIP(s.config.IPHeader, r)
+	if ip == nil {
 		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
 		return
 	}
@@ -74,6 +88,7 @@ func (s *Server) ProbeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	select {
 	case <-time.After(time.Second * 5):
+		s.recorder.EndTrace(ip)
 		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
 	case <-closeNotifier.CloseNotify():
 		return

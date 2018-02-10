@@ -13,14 +13,15 @@ import (
 )
 
 var (
-	configFile = flag.String("config", "", "File with server configuration")
-	initFlag   = flag.Bool("init", false, "if true, setup new configuration")
-	servePort  = flag.Int("port", 8080, "TCP port for web socket")
-	listenPort = flag.Int("lport", 8080, "TCP port for incoming connection listening")
-	path       = flag.String("path", "traas", "prefix for web requests")
-	device     = flag.String("device", "eth0", "inet device for pcap to use")
-	srcMAC     = flag.String("srcMAC", "000000000000", "Ethernet SRC for sending")
-	dstMAC     = flag.String("dstMAC", "000000000000", "Ethernet DST for sending")
+	configFile   = flag.String("config", "", "File with server configuration")
+	initFlag     = flag.Bool("init", false, "if true, setup new configuration")
+	servePort    = flag.Int("port", 8080, "TCP port for web socket")
+	listenPort   = flag.Int("lport", 8080, "TCP port for incoming connection listening")
+	path         = flag.String("path", "traas", "prefix for web requests")
+	device       = flag.String("device", "eth0", "inet device for pcap to use")
+	srcMAC       = flag.String("srcMAC", "000000000000", "Ethernet SRC for sending")
+	dstMAC       = flag.String("dstMAC", "000000000000", "Ethernet DST for sending")
+	originHeader = flag.String("originHeader", "", "Client IPs are forwarded in a http header")
 )
 
 func main() {
