@@ -30,9 +30,13 @@ func SetupSpoofingSockets(config Config) error {
 	// make sure the handle doesn't queue up packets and start blocking / dying
 	handle.SetBPFFilter("ip.len > 5000")
 
-	srcBytes, _ := hex.DecodeString(config.Src)
+	iface, err := net.InterfaceByName(config.Device)
+	if err != nil {
+		return err
+	}
+
 	dstBytes, _ := hex.DecodeString(config.Dst)
-	linkHeader = append(dstBytes, srcBytes...)
+	linkHeader = append(dstBytes, []byte(iface.HardwareAddr)...)
 	linkHeader = append(linkHeader, 0x08, 0) // IPv4 EtherType
 
 	//  var ipv6Layer layers.ipv6

@@ -26,7 +26,6 @@ type Config struct {
 	ListenPort uint16 // What port for pcap
 	Path       string // What path does traas live at
 	Device     string // What network interface is listened to
-	Src        string // Ethernet address of the local network interface
 	Dst        string // Ethernet address of the gateway network interface
 	IPHeader   string // If client ips should be checked from e.g. an x-forwarded-for header
 }

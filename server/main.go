@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
 	"path/filepath"
 
@@ -19,7 +20,6 @@ var (
 	listenPort   = flag.Int("lport", 8080, "TCP port for incoming connection listening")
 	path         = flag.String("path", "", "prefix for web requests")
 	device       = flag.String("device", "eth0", "inet device for pcap to use")
-	srcMAC       = flag.String("srcMAC", "000000000000", "Ethernet SRC for sending")
 	dstMAC       = flag.String("dstMAC", "000000000000", "Ethernet DST for sending")
 	originHeader = flag.String("originHeader", "", "Client IPs are forwarded in a http header")
 )
@@ -50,7 +50,6 @@ func main() {
 			ListenPort: uint16(*listenPort),
 			Path:       *path,
 			Device:     *device,
-			Src:        *srcMAC,
 			Dst:        *dstMAC,
 		})
 		if _, err := configHandle.Write(defaultConfig); err != nil {
@@ -79,7 +78,11 @@ func main() {
 		config.ListenPort = 8080
 	}
 	if config.Device == "" {
-		config.Device = "eth0"
+		if iface, iferr := net.InterfaceByIndex(0); iferr == nil {
+			config.Device = iface.Name
+		} else {
+			config.Device = "eth0"
+		}
 	}
 
 	fmt.Printf("Using config %+v \n", config)
