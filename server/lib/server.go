@@ -109,7 +109,7 @@ func (s *Server) ProbeHandler(w http.ResponseWriter, r *http.Request) {
 
 // ErrorHandler prints a standard message when errors are encountered
 func (s *Server) ErrorHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Error."))
+	w.Write([]byte("\"Error.\""))
 }
 
 // NewServer creates an HTTP server with a given config.
