@@ -1,6 +1,12 @@
 package traas2
 
-import "net"
+import (
+	"net"
+	"time"
+)
+
+// TraceMaxHops indicates how many hops can be recorded for a trace.
+const TraceMaxHops = 64
 
 // Probe represents the parameters for sending traceorute packets
 type Probe struct {
@@ -11,15 +17,16 @@ type Probe struct {
 
 // Hop represents the traceroute at a single TTL
 type Hop struct {
-	TTL uint8
-	IP  net.IP
-	Len uint16
+	TTL      uint8
+	IP       net.IP
+	Len      uint16
+	Received time.Time
 }
 
 // Trace represents the stored state for an ongoing traceroute
 type Trace struct {
 	To       net.IP
-	Sent     uint
+	Sent     time.Time
 	Recorded uint16
-	Hops     [64]Hop
+	Hops     [TraceMaxHops]Hop
 }

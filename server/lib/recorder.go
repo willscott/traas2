@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -23,6 +24,7 @@ type Recorder struct {
 	probe    *traas2.Probe
 }
 
+// MakeRecorder initializes the system / pcap listening thread for a given device.
 func MakeRecorder(netDev string, path string, port uint16, probe *traas2.Probe) (*Recorder, error) {
 	handle, err := pcap.OpenLive(netDev, 2048, false, pcap.BlockForever)
 	if err != nil {
@@ -53,6 +55,7 @@ func MakeRecorder(netDev string, path string, port uint16, probe *traas2.Probe) 
 
 	recorder := &Recorder{handle, path, ipv4Parser, cmap.New(), probe}
 
+	//TODO: ICMP?
 	fmt.Printf("dst host %s and (icmp[0:1] == 0x0b or (tcp dst port %d))", src.String(), port)
 	err = handle.SetBPFFilter(fmt.Sprintf("dst host %s and (icmp[0:1] == 0x0b or (tcp dst port %d))", src.String(), port))
 	if err != nil {
@@ -71,13 +74,13 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 			return nil
 		}
 
+		//TODO: v6
 		ipFrame, ok := packet.Layer(layers.LayerTypeIPv4).(*layers.IPv4)
 		if !ok {
 			continue
 		}
 		//icmp
 		if packet.NetworkLayer() == nil || packet.TransportLayer() == nil || packet.TransportLayer().LayerType() != layers.LayerTypeTCP {
-			//TODO: v6
 			if packet.Layer(layers.LayerTypeICMPv4) != nil {
 				//fmt.Printf("Received icmp msg\n")
 				icmp := packet.Layer(layers.LayerTypeICMPv4).(*layers.ICMPv4)
@@ -89,9 +92,14 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 						if handler, ok := r.handlers.Get(v4.DstIP.String()); ok {
 							fmt.Printf("Matched icmp to handler.\n")
 							trace := handler.(*traas2.Trace)
+							if trace.Recorded >= traas2.TraceMaxHops {
+								// trace fully recorded
+								continue
+							}
 							trace.Hops[trace.Recorded].IP = ipFrame.SrcIP
-							trace.Hops[trace.Recorded].TTL = v4.TTL
+							trace.Hops[trace.Recorded].TTL = uint8(v4.Id)
 							trace.Hops[trace.Recorded].Len = ipFrame.Length
+							trace.Hops[trace.Recorded].Received = time.Now()
 							trace.Recorded++
 						}
 					}
@@ -103,7 +111,7 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 		fmt.Printf("Saw ip packet from %v\n", ipFrame.SrcIP.String())
 		if handler, ok := r.handlers.Get(ipFrame.SrcIP.String()); ok {
 			trace := handler.(*traas2.Trace)
-			if trace.Sent == 0 {
+			if trace.Sent.IsZero() {
 				// Make sure this is the request for GET /<path/probe
 				tcpFrame := packet.Layer(layers.LayerTypeTCP).(*layers.TCP)
 				if tcpFrame == nil {
@@ -117,7 +125,7 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 				for i := r.probe.MinHop; i < r.probe.MaxHop; i++ {
 					SpoofTCPMessage(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), i, r.probe.Payload)
 				}
-				trace.Sent = 1
+				trace.Sent = time.Now()
 			}
 		}
 	}
@@ -125,6 +133,8 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 }
 
 // Managing traces
+
+// BeginTrace initializes a trace on a specific IP. Triggers sending of 302 probes and recording responses.
 func (r *Recorder) BeginTrace(to net.IP) *traas2.Trace {
 	t := new(traas2.Trace)
 	t.To = to
@@ -132,6 +142,7 @@ func (r *Recorder) BeginTrace(to net.IP) *traas2.Trace {
 	return t
 }
 
+// GetTrace returns the trace if present for a given IP
 func (r *Recorder) GetTrace(to net.IP) *traas2.Trace {
 	if val, ok := r.handlers.Get(to.String()); ok {
 		return val.(*traas2.Trace)
@@ -139,6 +150,7 @@ func (r *Recorder) GetTrace(to net.IP) *traas2.Trace {
 	return nil
 }
 
+// EndTrace cleans up after an active trace.
 func (r *Recorder) EndTrace(to net.IP) {
 	r.handlers.Remove(to.String())
 }

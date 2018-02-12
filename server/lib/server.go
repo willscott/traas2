@@ -46,6 +46,7 @@ func getIP(header string, r *http.Request) net.IP {
 	return ip
 }
 
+// StartHandler triggers the start of traces.
 func (s *Server) StartHandler(w http.ResponseWriter, r *http.Request) {
 	ip := getIP(s.config.IPHeader, r)
 	if ip == nil {
@@ -57,6 +58,7 @@ func (s *Server) StartHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/"+s.config.Path+"/probe", 302)
 }
 
+// EndHandler finishes traces
 func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
 	ip := getIP(s.config.IPHeader, r)
 	if ip == nil {
@@ -84,6 +86,7 @@ func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ProbeHandler waits for probes to be received, then prints state.
 func (s *Server) ProbeHandler(w http.ResponseWriter, r *http.Request) {
 	ip := getIP(s.config.IPHeader, r)
 	if ip == nil {
@@ -104,10 +107,12 @@ func (s *Server) ProbeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ErrorHandler prints a standard message when errors are encountered
 func (s *Server) ErrorHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Error."))
 }
 
+// NewServer creates an HTTP server with a given config.
 func NewServer(conf Config) *Server {
 	redirect := "HTTP/1.1 302 Found\r\n" +
 		"Location: ./done\r\n" +
@@ -137,12 +142,12 @@ func NewServer(conf Config) *Server {
 	mux.Handle("/"+conf.Path+"/client/", http.StripPrefix("/"+conf.Path+"/client/", http.FileServer(http.Dir("../demo"))))
 	//	mux.Handle("/", http.RedirectHandler("/"+conf.Path+"/client", 302))
 
-	webServer := &http.Server{Addr: addr, Handler: mux}
+	server.webServer = http.Server{Addr: addr, Handler: mux}
 
-	server.webServer = *webServer
 	return server
 }
 
+// Serve begins listening for web connections on the port specified in config
 func (s *Server) Serve() error {
 	return s.webServer.ListenAndServe()
 }

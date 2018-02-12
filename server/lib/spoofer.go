@@ -12,14 +12,14 @@ import (
 )
 
 var (
-	// If TestChannel is set, spoofed packets will be sent to it, rather than to pcap.
+	// TestSpoofChannel can be set, causing spoofed packets to go to it rather than a pcap
 	TestSpoofChannel chan []byte
 	handle           *pcap.Handle
 	ipv4Layer        layers.IPv4
 	linkHeader       []byte
 )
-var ipv4Parser *gopacket.DecodingLayerParser = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, &ipv4Layer)
 
+// SetupSpoofingSockets opens a raw pcap socket for sending packets
 func SetupSpoofingSockets(config Config) error {
 	var err error
 
@@ -74,6 +74,7 @@ func SpoofTCPMessage(src net.IP, dest net.IP, request *layers.TCP, requestLength
 	return SpoofIPv4Message(buf.Bytes())
 }
 
+// SpoofIPv4Message sends a serialized packet on the raw socket.
 func SpoofIPv4Message(packet []byte) error {
 	if TestSpoofChannel != nil {
 		TestSpoofChannel <- packet
