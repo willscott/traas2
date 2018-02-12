@@ -17,7 +17,7 @@ var (
 	initFlag     = flag.Bool("init", false, "if true, setup new configuration")
 	servePort    = flag.Int("port", 8080, "TCP port for web socket")
 	listenPort   = flag.Int("lport", 8080, "TCP port for incoming connection listening")
-	path         = flag.String("path", "traas", "prefix for web requests")
+	path         = flag.String("path", "", "prefix for web requests")
 	device       = flag.String("device", "eth0", "inet device for pcap to use")
 	srcMAC       = flag.String("srcMAC", "000000000000", "Ethernet SRC for sending")
 	dstMAC       = flag.String("dstMAC", "000000000000", "Ethernet DST for sending")
@@ -80,9 +80,6 @@ func main() {
 	}
 	if config.Device == "" {
 		config.Device = "eth0"
-	}
-	if config.Path == "" {
-		config.Path = "traas"
 	}
 
 	fmt.Printf("Using config %+v \n", config)

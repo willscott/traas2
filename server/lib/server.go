@@ -55,19 +55,19 @@ func (s *Server) StartHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("Beginning trace for %v\n", ip)
 	s.recorder.BeginTrace(ip)
-	http.Redirect(w, r, "/"+s.config.Path+"/probe", 302)
+	http.Redirect(w, r, s.config.Path+"/probe", 302)
 }
 
 // EndHandler finishes traces
 func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
 	ip := getIP(s.config.IPHeader, r)
 	if ip == nil {
-		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
+		http.Redirect(w, r, s.config.Path+"/error", 302)
 		return
 	}
 	closeNotifier, ok := w.(http.CloseNotifier)
 	if !ok {
-		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
+		http.Redirect(w, r, s.config.Path+"/error", 302)
 	}
 
 	if t := s.recorder.GetTrace(ip); t != nil {
@@ -90,18 +90,18 @@ func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) ProbeHandler(w http.ResponseWriter, r *http.Request) {
 	ip := getIP(s.config.IPHeader, r)
 	if ip == nil {
-		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
+		http.Redirect(w, r, s.config.Path+"/error", 302)
 		return
 	}
 
 	closeNotifier, ok := w.(http.CloseNotifier)
 	if !ok {
-		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
+		http.Redirect(w, r, s.config.Path+"/error", 302)
 	}
 	select {
 	case <-time.After(time.Second * 5):
 		s.recorder.EndTrace(ip)
-		http.Redirect(w, r, "/"+s.config.Path+"/error", 302)
+		http.Redirect(w, r, s.config.Path+"/error", 302)
 	case <-closeNotifier.CloseNotify():
 		return
 	}
@@ -134,13 +134,12 @@ func NewServer(conf Config) *Server {
 
 	addr := fmt.Sprintf("0.0.0.0:%d", conf.ServePort)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/"+conf.Path+"/start", server.StartHandler)
-	mux.HandleFunc("/"+conf.Path+"/probe", server.ProbeHandler)
-	mux.HandleFunc("/"+conf.Path+"/done", server.EndHandler)
-	mux.HandleFunc("/"+conf.Path+"/error", server.ErrorHandler)
+	mux.HandleFunc(conf.Path+"/start", server.StartHandler)
+	mux.HandleFunc(conf.Path+"/probe", server.ProbeHandler)
+	mux.HandleFunc(conf.Path+"/done", server.EndHandler)
+	mux.HandleFunc(conf.Path+"/error", server.ErrorHandler)
 	// By default serve a demo site.
-	mux.Handle("/"+conf.Path+"/client/", http.StripPrefix("/"+conf.Path+"/client/", http.FileServer(http.Dir("../demo"))))
-	//	mux.Handle("/", http.RedirectHandler("/"+conf.Path+"/client", 302))
+	mux.Handle(conf.Path+"/client/", http.StripPrefix(conf.Path+"/client/", http.FileServer(http.Dir("../demo"))))
 
 	server.webServer = http.Server{Addr: addr, Handler: mux}
 

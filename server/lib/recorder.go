@@ -118,7 +118,7 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 					continue
 				}
 				payload := tcpFrame.Payload
-				if !bytes.HasPrefix(payload, []byte("GET /"+r.path+"/probe")) {
+				if !bytes.HasPrefix(payload, []byte("GET "+r.path+"/probe")) {
 					continue
 				}
 				fmt.Printf("Saw Probe req for IP that is under trace. spoofing 302's.\n")
