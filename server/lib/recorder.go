@@ -56,8 +56,8 @@ func MakeRecorder(netDev string, path string, port uint16, probe *traas2.Probe) 
 	recorder := &Recorder{handle, path, ipv4Parser, cmap.New(), probe}
 
 	//TODO: ICMP?
-	fmt.Printf("dst host %s and (icmp[0:1] == 0x0b or (tcp dst port %d))", src.String(), port)
-	err = handle.SetBPFFilter(fmt.Sprintf("dst host %s and (icmp[0:1] == 0x0b or (tcp dst port %d))", src.String(), port))
+	fmt.Printf("dst host %s and (icmp or (tcp dst port %d))", src.String(), port)
+	err = handle.SetBPFFilter(fmt.Sprintf("dst host %s and (icmp or (tcp dst port %d))", src.String(), port))
 	if err != nil {
 		panic(err)
 	}
@@ -82,15 +82,14 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 		//icmp
 		if packet.NetworkLayer() == nil || packet.TransportLayer() == nil || packet.TransportLayer().LayerType() != layers.LayerTypeTCP {
 			if packet.Layer(layers.LayerTypeICMPv4) != nil {
-				//fmt.Printf("Received icmp msg\n")
-				icmp := packet.Layer(layers.LayerTypeICMPv4).(*layers.ICMPv4)
+				icmpframe := packet.Layer(layers.LayerTypeICMPv4).(*layers.ICMPv4)
 				// TODO: should other ICMP codes also be handled?
-				if icmp.TypeCode == layers.ICMPv4CodeTTLExceeded {
-					original := gopacket.NewPacket(icmp.Payload, layers.LayerTypeIPv4, gopacket.DecodeOptions{NoCopy: true, Lazy: true})
+				if icmpframe.TypeCode.Type() == layers.ICMPv4TypeTimeExceeded {
+					original := gopacket.NewPacket(icmpframe.Payload, layers.LayerTypeIPv4, gopacket.DecodeOptions{NoCopy: true, Lazy: true})
 					v4 := original.Layer(layers.LayerTypeIPv4).(*layers.IPv4)
 					if v4 != nil {
 						if handler, ok := r.handlers.Get(v4.DstIP.String()); ok {
-							fmt.Printf("Matched icmp to handler.\n")
+							//fmt.Printf("Matched icmp to handler.\n")
 							trace := handler.(*traas2.Trace)
 							if trace.Recorded >= traas2.TraceMaxHops {
 								// trace fully recorded
@@ -98,7 +97,6 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 							}
 							trace.Hops[trace.Recorded].IP = ipFrame.SrcIP
 							trace.Hops[trace.Recorded].TTL = uint8(v4.Id)
-							trace.Hops[trace.Recorded].Len = ipFrame.Length
 							trace.Hops[trace.Recorded].Received = time.Now()
 							trace.Recorded++
 						}
@@ -121,7 +119,7 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 				if !bytes.HasPrefix(payload, []byte("GET "+r.path+"/probe")) {
 					continue
 				}
-				fmt.Printf("Saw Probe req for IP that is under trace. spoofing 302's.\n")
+				//fmt.Printf("Saw Probe req for IP that is under trace. spoofing 302's.\n")
 				for i := r.probe.MinHop; i < r.probe.MaxHop; i++ {
 					SpoofTCPMessage(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), i, r.probe.Payload)
 				}

@@ -75,6 +75,13 @@ func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
 		case <-time.After(time.Second * 1):
 			t = s.recorder.GetTrace(ip)
 			s.recorder.EndTrace(ip)
+			//sort and create route from recorded hops.
+			hopMap := make(map[uint8]traas2.Hop)
+			for i := uint16(0); i < t.Recorded; i++ {
+				hopMap[t.Hops[i].TTL] = t.Hops[i]
+			}
+			t.Route = hopMap
+
 			if b, err := json.Marshal(t); err == nil {
 				w.Write(b)
 				log.Printf("End Handler from %v: %s\n", ip, b)

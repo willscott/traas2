@@ -19,7 +19,6 @@ type Probe struct {
 type Hop struct {
 	TTL      uint8
 	IP       net.IP
-	Len      uint16
 	Received time.Time
 }
 
@@ -27,6 +26,7 @@ type Hop struct {
 type Trace struct {
 	To       net.IP
 	Sent     time.Time
-	Recorded uint16
-	Hops     [TraceMaxHops]Hop
+	Recorded uint16 `json:"-"`
+	Route    map[uint8]Hop
+	Hops     [TraceMaxHops]Hop `json:"-"`
 }
