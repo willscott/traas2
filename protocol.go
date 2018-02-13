@@ -22,11 +22,18 @@ type Hop struct {
 	Received time.Time
 }
 
+// Route is a sortable list of hops
+type Route []Hop
+
+func (r Route) Len() int           { return len(r) }
+func (r Route) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
+func (r Route) Less(i, j int) bool { return r[i].TTL < r[j].TTL }
+
 // Trace represents the stored state for an ongoing traceroute
 type Trace struct {
 	To       net.IP
 	Sent     time.Time
 	Recorded uint16 `json:"-"`
-	Route    map[uint8]Hop
+	Route    Route
 	Hops     [TraceMaxHops]Hop `json:"-"`
 }

@@ -106,7 +106,7 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 			continue
 		}
 		//tcp
-		fmt.Printf("Saw ip packet from %v\n", ipFrame.SrcIP.String())
+		//fmt.Printf("Saw ip packet from %v\n", ipFrame.SrcIP.String())
 		if handler, ok := r.handlers.Get(ipFrame.SrcIP.String()); ok {
 			trace := handler.(*traas2.Trace)
 			if trace.Sent.IsZero() {

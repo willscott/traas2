@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -76,11 +77,12 @@ func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
 			t = s.recorder.GetTrace(ip)
 			s.recorder.EndTrace(ip)
 			//sort and create route from recorded hops.
-			hopMap := make(map[uint8]traas2.Hop)
+			hops := make(traas2.Route, t.Recorded)
 			for i := uint16(0); i < t.Recorded; i++ {
-				hopMap[t.Hops[i].TTL] = t.Hops[i]
+				hops[i] = t.Hops[i]
 			}
-			t.Route = hopMap
+			sort.Sort(hops)
+			t.Route = hops
 
 			if b, err := json.Marshal(t); err == nil {
 				w.Write(b)
