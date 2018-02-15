@@ -29,6 +29,7 @@ type Config struct {
 	Device     string // What network interface is listened to
 	Dst        string // Ethernet address of the gateway network interface
 	IPHeader   string // If client ips should be checked from e.g. an x-forwarded-for header
+	TraceLog   *log.Logger
 }
 
 func getIP(header string, r *http.Request) net.IP {
@@ -86,7 +87,7 @@ func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
 
 			if b, err := json.Marshal(t); err == nil {
 				w.Write(b)
-				log.Printf("End Handler from %v: %s\n", ip, b)
+				s.config.TraceLog.Println(b)
 			}
 		case <-closeNotifier.CloseNotify():
 			return

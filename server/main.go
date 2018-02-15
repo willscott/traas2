@@ -22,10 +22,20 @@ var (
 	device       = flag.String("device", "eth0", "inet device for pcap to use")
 	dstMAC       = flag.String("dstMAC", "000000000000", "Ethernet DST for sending")
 	originHeader = flag.String("originHeader", "", "Client IPs are forwarded in a http header")
+	logFile      = flag.String("log", "", "where to log completed traces. If not set, will log to stdout")
 )
 
 func main() {
 	flag.Parse()
+
+	ll := log.New(os.Stderr, "", log.Ldate|log.Ltime|log.Lmicroseconds)
+	if *logFile != "" {
+		outfile, err := os.OpenFile(*logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
+			panic("could not open log file: " + err.Error())
+		}
+		ll = log.New(outfile, "", log.Ldate|log.Ltime|log.Lmicroseconds)
+	}
 
 	if len(*configFile) == 0 {
 		home := os.Getenv("HOME")
@@ -51,6 +61,7 @@ func main() {
 			Path:       *path,
 			Device:     *device,
 			Dst:        *dstMAC,
+			TraceLog: ll
 		})
 		if _, err := configHandle.Write(defaultConfig); err != nil {
 			log.Fatalf("Failed to write default config: %s", err)
