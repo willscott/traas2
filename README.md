@@ -46,9 +46,11 @@ The following configuration parameters are used by Traas:
 * ServePort - Which port the HTTP server is bound to. Default: 8080
 * ListenPort - Incoming packets on this port are listened to by the pcap listener. Default: 8080. this value can differ from the ServePort when Traas is protected by a forward proxy, like Nginx or equivalent. In those cases, the forward proxy would relay requests to Traas, but the listener continues to rely on watching the actual packets from the client.
 * Path - Traas can be prefixed to allow multiple applications to be served on the server. For example, "/traas" would limit its scope. Default: ""
+* Root - Where Traas looks for the demo/ folder. Default: ".." (one folder up from `server/`)
 * Device - Which ethernet device to bind to. Default: eth0, or the first device on your system.
 * DstMac - The ethernet address of the default gateway. This can be found in the output of
     ```bash
     netstat -rn
     ```
 * originHeader - If there is a local forwarding web server, request to the http server will be from localhost, and the origin clientIP should be passed in an additional HTTP header. That header can be specified here. Default: ""
+* log - A file that completed traceroutes are logged to when returned to a client. Default: stdout

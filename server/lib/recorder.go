@@ -135,7 +135,7 @@ func sendSpoofs(to, from net.IP, header *layers.TCP, length uint16, probe *traas
 	//fmt.Printf("Saw Probe req for IP that is under trace. spoofing 302's.\n")
 	for i := probe.MinHop; i < probe.MaxHop; i++ {
 		SpoofTCPMessage(to, from, header, length, i, probe.Payload)
-		time.Sleep(250 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 

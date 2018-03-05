@@ -76,10 +76,13 @@ func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
 
 	if t := s.recorder.GetTrace(ip); t != nil {
 		// Wait an extra second for the trace to get filled in.
-		delayTime := time.Millisecond * 500 * time.Duration(s.probe.MaxHop-s.probe.MinHop+1)
+		delayTime := time.Millisecond * 100 * time.Duration(s.probe.MaxHop-s.probe.MinHop+1)
 		select {
 		case <-time.After(delayTime):
 			t = s.recorder.GetTrace(ip)
+			if t == nil {
+				return
+			}
 			s.recorder.EndTrace(ip)
 			//sort and create route from recorded hops.
 			hops := make(traas2.Route, t.Recorded)
@@ -112,7 +115,7 @@ func (s *Server) ProbeHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, s.config.Path+"/error", 302)
 	}
 	select {
-	case <-time.After(time.Second * 5):
+	case <-time.After(time.Second * 10):
 		s.recorder.EndTrace(ip)
 		http.Redirect(w, r, s.config.Path+"/error", 302)
 	case <-closeNotifier.CloseNotify():
