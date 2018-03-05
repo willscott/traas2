@@ -123,15 +123,20 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 					!bytes.Contains(payload[0:bytes.IndexByte(payload, 0x0D)], []byte(r.path+"/probe")) {
 					continue
 				}
-				//fmt.Printf("Saw Probe req for IP that is under trace. spoofing 302's.\n")
-				for i := r.probe.MinHop; i < r.probe.MaxHop; i++ {
-					SpoofTCPMessage(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), i, r.probe.Payload)
-				}
+				go sendSpoofs(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), r.probe)
 				trace.Sent = time.Now()
 			}
 		}
 	}
 	return nil
+}
+
+func sendSpoofs(to, from net.IP, header *layers.TCP, length uint16, probe *traas2.Probe) {
+	//fmt.Printf("Saw Probe req for IP that is under trace. spoofing 302's.\n")
+	for i := probe.MinHop; i < probe.MaxHop; i++ {
+		SpoofTCPMessage(to, from, header, length, i, probe.Payload)
+		time.Sleep(250 * time.Millisecond)
+	}
 }
 
 // Managing traces

@@ -18,6 +18,7 @@ type Server struct {
 	sync.Mutex
 	webServer http.Server
 	recorder  *Recorder
+	probe     *traas2.Probe
 	config    Config
 }
 
@@ -75,8 +76,9 @@ func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
 
 	if t := s.recorder.GetTrace(ip); t != nil {
 		// Wait an extra second for the trace to get filled in.
+		delayTime := time.Millisecond * 500 * time.Duration(s.probe.MaxHop-s.probe.MinHop+1)
 		select {
-		case <-time.After(time.Second * 1):
+		case <-time.After(delayTime):
 			t = s.recorder.GetTrace(ip)
 			s.recorder.EndTrace(ip)
 			//sort and create route from recorded hops.
@@ -140,6 +142,7 @@ func NewServer(conf Config) *Server {
 	}
 	server := &Server{
 		config:   conf,
+		probe:    probe,
 		recorder: recorder,
 	}
 
