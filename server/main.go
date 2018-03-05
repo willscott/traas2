@@ -61,7 +61,7 @@ func main() {
 			Path:       *path,
 			Device:     *device,
 			Dst:        *dstMAC,
-			TraceLog: ll
+			TraceLog:   ll,
 		})
 		if _, err := configHandle.Write(defaultConfig); err != nil {
 			log.Fatalf("Failed to write default config: %s", err)
