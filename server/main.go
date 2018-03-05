@@ -95,6 +95,9 @@ func main() {
 			config.Device = "eth0"
 		}
 	}
+	if config.TraceLog == nil {
+		config.TraceLog = ll
+	}
 
 	fmt.Printf("Using config %+v \n", config)
 	if err = server.SetupSpoofingSockets(config); err != nil {
