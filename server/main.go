@@ -28,15 +28,6 @@ var (
 func main() {
 	flag.Parse()
 
-	ll := log.New(os.Stderr, "", log.Ldate|log.Ltime|log.Lmicroseconds)
-	if *logFile != "" {
-		outfile, err := os.OpenFile(*logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		if err != nil {
-			panic("could not open log file: " + err.Error())
-		}
-		ll = log.New(outfile, "", log.Ldate|log.Ltime|log.Lmicroseconds)
-	}
-
 	if len(*configFile) == 0 {
 		home := os.Getenv("HOME")
 		if len(home) == 0 {
@@ -61,7 +52,7 @@ func main() {
 			Path:       *path,
 			Device:     *device,
 			Dst:        *dstMAC,
-			TraceLog:   ll,
+			TraceFile:  *logFile,
 		})
 		if _, err := configHandle.Write(defaultConfig); err != nil {
 			log.Fatalf("Failed to write default config: %s", err)
@@ -82,6 +73,23 @@ func main() {
 		return
 	}
 
+	ll := log.New(os.Stderr, "", log.Ldate|log.Ltime|log.Lmicroseconds)
+	if config.TraceFile != "" {
+		outfile, logerr := os.OpenFile(config.TraceFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if logerr != nil {
+			panic("could not open log file: " + logerr.Error())
+		}
+		ll = log.New(outfile, "", log.Ldate|log.Ltime|log.Lmicroseconds)
+	}
+	if *logFile != "" {
+		outfile, logerr := os.OpenFile(*logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if logerr != nil {
+			panic("could not open log file: " + logerr.Error())
+		}
+		ll = log.New(outfile, "", log.Ldate|log.Ltime|log.Lmicroseconds)
+	}
+	config.TraceLog = ll
+
 	if config.ServePort == 0 {
 		config.ServePort = 8080
 	}
@@ -94,9 +102,6 @@ func main() {
 		} else {
 			config.Device = "eth0"
 		}
-	}
-	if config.TraceLog == nil {
-		config.TraceLog = ll
 	}
 
 	fmt.Printf("Using config %+v \n", config)

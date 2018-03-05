@@ -23,13 +23,14 @@ type Server struct {
 
 // Config stores longterm state of how the server behaves
 type Config struct {
-	ServePort  uint16 // What port for webServer
-	ListenPort uint16 // What port for pcap
-	Path       string // What path does traas live at
-	Device     string // What network interface is listened to
-	Dst        string // Ethernet address of the gateway network interface
-	IPHeader   string // If client ips should be checked from e.g. an x-forwarded-for header
-	TraceLog   *log.Logger
+	ServePort  uint16      // What port for webServer
+	ListenPort uint16      // What port for pcap
+	Path       string      // What path does traas live at
+	Device     string      // What network interface is listened to
+	Dst        string      // Ethernet address of the gateway network interface
+	IPHeader   string      // If client ips should be checked from e.g. an x-forwarded-for header
+	TraceFile  string      // file to log traces.
+	TraceLog   *log.Logger `json:"-"`
 }
 
 func getIP(header string, r *http.Request) net.IP {
