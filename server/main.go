@@ -19,6 +19,7 @@ var (
 	servePort    = flag.Int("port", 8080, "TCP port for web socket")
 	listenPort   = flag.Int("lport", 8080, "TCP port for incoming connection listening")
 	path         = flag.String("path", "", "prefix for web requests")
+	root         = flag.String("root", "..", "FS directory of traas for serving static files")
 	device       = flag.String("device", "eth0", "inet device for pcap to use")
 	dstMAC       = flag.String("dstMAC", "000000000000", "Ethernet DST for sending")
 	originHeader = flag.String("originHeader", "", "Client IPs are forwarded in a http header")
@@ -50,6 +51,7 @@ func main() {
 			ServePort:  uint16(*servePort),
 			ListenPort: uint16(*listenPort),
 			Path:       *path,
+			Root:       *root,
 			Device:     *device,
 			Dst:        *dstMAC,
 			TraceFile:  *logFile,

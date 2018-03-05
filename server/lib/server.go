@@ -25,7 +25,8 @@ type Server struct {
 type Config struct {
 	ServePort  uint16      // What port for webServer
 	ListenPort uint16      // What port for pcap
-	Path       string      // What path does traas live at
+	Path       string      // What web path does traas live at
+	Root       string      // where is the go code (and static files) for traas
 	Device     string      // What network interface is listened to
 	Dst        string      // Ethernet address of the gateway network interface
 	IPHeader   string      // If client ips should be checked from e.g. an x-forwarded-for header
@@ -149,7 +150,7 @@ func NewServer(conf Config) *Server {
 	mux.HandleFunc(conf.Path+"/done", server.EndHandler)
 	mux.HandleFunc(conf.Path+"/error", server.ErrorHandler)
 	// By default serve a demo site.
-	mux.Handle(conf.Path+"/client/", http.StripPrefix(conf.Path+"/client/", http.FileServer(http.Dir("../demo"))))
+	mux.Handle(conf.Path+"/client/", http.StripPrefix(conf.Path+"/client/", http.FileServer(http.Dir(conf.Root+"/demo"))))
 
 	server.webServer = http.Server{Addr: addr, Handler: mux}
 
