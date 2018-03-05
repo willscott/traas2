@@ -94,7 +94,7 @@ func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
 
 			if b, err := json.Marshal(t); err == nil {
 				w.Write(b)
-				s.config.TraceLog.Println(b)
+				s.config.TraceLog.Println(string(b))
 			}
 		case <-closeNotifier.CloseNotify():
 			return
