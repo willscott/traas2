@@ -76,7 +76,7 @@ func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
 
 	if t := s.recorder.GetTrace(ip); t != nil {
 		// Wait an extra second for the trace to get filled in.
-		delayTime := time.Millisecond * 100 * time.Duration(s.probe.MaxHop-s.probe.MinHop+1)
+		delayTime := time.Millisecond * 100 * time.Duration(traas2.TraceLongestTTL-traas2.TraceShortestTTL+1)
 		select {
 		case <-time.After(delayTime):
 			t = s.recorder.GetTrace(ip)
@@ -136,8 +136,6 @@ func NewServer(conf Config) *Server {
 		"Content-Length: 0\r\n\r\n"
 	probe := &traas2.Probe{
 		Payload: []byte(redirect),
-		MinHop:  4,
-		MaxHop:  32,
 	}
 	recorder, err := MakeRecorder(conf.Device, conf.Path, conf.ListenPort, probe)
 	if err != nil {

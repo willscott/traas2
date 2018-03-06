@@ -2,10 +2,12 @@ package server
 
 import (
 	"encoding/hex"
+	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+	"github.com/willscott/traas2"
 
 	"log"
 	"net"
@@ -90,4 +92,23 @@ func SpoofIPv4Message(packet []byte) error {
 		return err
 	}
 	return nil
+}
+
+// SpoofProbe will inject the message specified by probe in repsonse to a given TCP packet.
+func SpoofProbe(probe *traas2.Probe, inReplyTo gopacket.Packet) {
+	ipFrame := inReplyTo.Layer(layers.LayerTypeIPv4).(*layers.IPv4)
+	if ipFrame == nil {
+		return
+	}
+	tcpFrame := inReplyTo.Layer(layers.LayerTypeTCP).(*layers.TCP)
+	if tcpFrame == nil {
+		return
+	}
+
+	// probes are sent in pairs of (ttl,ttl+1) with delays to prevent flood triggering
+	for i := traas2.TraceShortestTTL; i < traas2.TraceLongestTTL; i++ {
+		SpoofTCPMessage(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), byte(i), probe.Payload)
+		SpoofTCPMessage(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), byte(i+1), probe.Payload)
+		time.Sleep(100 * time.Millisecond)
+	}
 }

@@ -91,7 +91,7 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 						if handler, ok := r.handlers.Get(v4.DstIP.String()); ok {
 							//fmt.Printf("Matched icmp to handler.\n")
 							trace := handler.(*traas2.Trace)
-							if trace.Recorded >= traas2.TraceMaxHops {
+							if trace.Recorded >= traas2.TraceMaxReplies {
 								// trace fully recorded
 								continue
 							}
@@ -123,20 +123,14 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 					!bytes.Contains(payload[0:bytes.IndexByte(payload, 0x0D)], []byte(r.path+"/probe")) {
 					continue
 				}
-				go sendSpoofs(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), r.probe)
+
+				go SpoofProbe(r.probe, packet)
+
 				trace.Sent = time.Now()
 			}
 		}
 	}
 	return nil
-}
-
-func sendSpoofs(to, from net.IP, header *layers.TCP, length uint16, probe *traas2.Probe) {
-	//fmt.Printf("Saw Probe req for IP that is under trace. spoofing 302's.\n")
-	for i := probe.MinHop; i < probe.MaxHop; i++ {
-		SpoofTCPMessage(to, from, header, length, i, probe.Payload)
-		time.Sleep(100 * time.Millisecond)
-	}
 }
 
 // Managing traces

@@ -5,14 +5,18 @@ import (
 	"time"
 )
 
-// TraceMaxHops indicates how many hops can be recorded for a trace.
-const TraceMaxHops = 64
+// TraceMaxReplies indicates how many hops can be recorded for a trace.
+const TraceMaxReplies = 64
 
-// Probe represents the parameters for sending traceorute packets
+// TraceShortestTTL indicates the lowest ttl used
+const TraceShortestTTL = 4
+
+// TraceLongestTTL indicates the largest ttl used
+const TraceLongestTTL = 32
+
+// Probe represents a tcp injection.
 type Probe struct {
 	Payload []byte
-	MinHop  uint8
-	MaxHop  uint8
 }
 
 // Hop represents the traceroute at a single TTL
@@ -35,5 +39,5 @@ type Trace struct {
 	Sent     time.Time
 	Recorded uint16 `json:"-"`
 	Route    Route
-	Hops     [TraceMaxHops]Hop `json:"-"`
+	Hops     [TraceMaxReplies]Hop `json:"-"`
 }
