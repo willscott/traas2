@@ -95,13 +95,15 @@ func SpoofIPv4Message(packet []byte) error {
 }
 
 // SpoofProbe will inject the message specified by probe in repsonse to a given TCP packet.
-func SpoofProbe(probe *traas2.Probe, inReplyTo gopacket.Packet) {
-	ipFrame := inReplyTo.Layer(layers.LayerTypeIPv4).(*layers.IPv4)
-	if ipFrame == nil {
+func SpoofProbe(probe *traas2.Probe, inReplyTo gopacket.Packet, withDelay bool) {
+	ipFrame, ok := inReplyTo.Layer(layers.LayerTypeIPv4).(*layers.IPv4)
+	if !ok {
+		log.Printf("Asked to spoof but inReply had no ip frame")
 		return
 	}
-	tcpFrame := inReplyTo.Layer(layers.LayerTypeTCP).(*layers.TCP)
-	if tcpFrame == nil {
+	tcpFrame, ok := inReplyTo.Layer(layers.LayerTypeTCP).(*layers.TCP)
+	if !ok {
+		log.Printf("Asked to spoof but inReply had no tcp frame")
 		return
 	}
 
@@ -109,6 +111,8 @@ func SpoofProbe(probe *traas2.Probe, inReplyTo gopacket.Packet) {
 	for i := traas2.TraceShortestTTL; i < traas2.TraceLongestTTL; i++ {
 		SpoofTCPMessage(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), byte(i), probe.Payload)
 		SpoofTCPMessage(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), byte(i+1), probe.Payload)
-		time.Sleep(100 * time.Millisecond)
+		if withDelay {
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
 }

@@ -124,7 +124,7 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 					continue
 				}
 
-				go SpoofProbe(r.probe, packet)
+				go SpoofProbe(r.probe, packet, true)
 
 				trace.Sent = time.Now()
 			}
