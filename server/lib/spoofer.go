@@ -63,6 +63,11 @@ func SpoofTCPMessage(src net.IP, dest net.IP, request *layers.TCP, requestLength
 		SrcIP:    src,
 		DstIP:    dest,
 		Flags:    layers.IPv4DontFragment,
+		Options: []layers.IPv4Option{layers.IPv4Option{
+			OptionType:   7,
+			OptionLength: 32,
+			OptionData:   make([]byte, 30),
+		}},
 	}
 	tcp := &layers.TCP{
 		SrcPort: request.DstPort,
