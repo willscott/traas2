@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -91,6 +92,17 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 						if handler, ok := r.handlers.Get(v4.DstIP.String()); ok {
 							//fmt.Printf("Matched icmp to handler.\n")
 							trace := handler.(*traas2.Trace)
+
+							// see if we got anything interesting in packet options
+							for _, opt := range v4.Options {
+								if opt.OptionType == 7 {
+									log.Printf("route recording got us %x", opt.OptionData)
+								}
+								else if opt.OptionType == 4 {
+									log.Printf("timestamp got us %x", opt.OptionData)
+								}
+							}
+
 							if trace.Recorded >= traas2.TraceMaxReplies {
 								// trace fully recorded
 								continue
@@ -101,6 +113,8 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 							trace.Recorded++
 						}
 					}
+				} else {
+					log.Printf("ICMP code %d.%d received.", icmpframe.TypeCode.Type(), icmpframe.TypeCode.Code())
 				}
 			}
 			continue

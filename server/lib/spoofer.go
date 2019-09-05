@@ -46,6 +46,13 @@ func SetupSpoofingSockets(config Config) error {
 	return nil
 }
 
+func getTimestamp() []byte {
+	// per http://www.networksorcery.com/enp/protocol/ip/option004.htm
+	singleStamp := []byte{0xC4, 0x0C, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+
+	return singleStamp
+}
+
 // SpoofTCPMessage constructs and sends a tcp message sent in the same stream as 'request' with a specified payload.
 func SpoofTCPMessage(src net.IP, dest net.IP, request *layers.TCP, requestLength uint16, ttl byte, payload []byte) error {
 	// Send legit packet.
@@ -67,7 +74,12 @@ func SpoofTCPMessage(src net.IP, dest net.IP, request *layers.TCP, requestLength
 			OptionType:   7,
 			OptionLength: 32,
 			OptionData:   make([]byte, 30),
-		}},
+		},
+			layers.IPv4Option{
+				OptionType:   4,
+				OptionLength: 96,
+				OptionData:   getTimestamp(),
+			}},
 	}
 	tcp := &layers.TCP{
 		SrcPort: request.DstPort,
