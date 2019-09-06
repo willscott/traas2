@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"time"
 
@@ -48,17 +49,21 @@ func SetupSpoofingSockets(config Config) error {
 }
 
 func getRecordRoute() []byte {
+	// per http://www.networksorcery.com/enp/protocol/ip/option007.htm
 	route := make([]byte, 30)
 	// pointer
 	route[0] = 4
 
 	return route
 }
-func getTimestamp() []byte {
-	// per http://www.networksorcery.com/enp/protocol/ip/option004.htm
-	singleStamp := []byte{0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 
-	return singleStamp
+func getTimestamp() []byte {
+	ts := make([]byte, 8)
+
+	t := time.Now().Unix()
+
+	binary.LittleEndian.PutUint32(ts[0:4], uint32(t))
+	return ts
 }
 
 // SpoofTCPMessage constructs and sends a tcp message sent in the same stream as 'request' with a specified payload.
@@ -78,16 +83,14 @@ func SpoofTCPMessage(src net.IP, dest net.IP, request *layers.TCP, requestLength
 		SrcIP:    src,
 		DstIP:    dest,
 		Flags:    layers.IPv4DontFragment,
-		Options: []layers.IPv4Option{layers.IPv4Option{
-			OptionType:   7,
-			OptionLength: 32,
-			OptionData:   getRecordRoute(),
-		},
-			layers.IPv4Option{
-				OptionType:   4,
-				OptionLength: 12,
-				OptionData:   getTimestamp(),
+		// Packets are dropped by router when record-route added as IP header.
+		/*
+			Options: []layers.IPv4Option{layers.IPv4Option{
+				OptionType:   7,
+				OptionLength: 32,
+				OptionData:   getRecordRoute(),
 			}},
+		*/
 	}
 	tcp := &layers.TCP{
 		SrcPort: request.DstPort,
@@ -97,6 +100,13 @@ func SpoofTCPMessage(src net.IP, dest net.IP, request *layers.TCP, requestLength
 		PSH:     true,
 		ACK:     true,
 		Window:  122,
+		Options: []layers.TCPOption{
+			layers.TCPOption{
+				OptionType:   8,
+				OptionLength: 10,
+				OptionData:   getTimestamp(),
+			},
+		},
 	}
 	if err := tcp.SetNetworkLayerForChecksum(ip); err != nil {
 		return err
