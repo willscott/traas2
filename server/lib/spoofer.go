@@ -131,7 +131,9 @@ func SpoofProbe(ctx context.Context, probe *traas2.Probe, inReplyTo gopacket.Pac
 		case <-ctx.Done():
 			return
 		default:
-			SpoofTCPMessage(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), byte(i), probe.Payload)
+			if err := SpoofTCPMessage(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), byte(i), probe.Payload); err != nil {
+				log.Printf("Failed to send Pkt: %v\n", err)
+			}
 			SpoofTCPMessage(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), byte(i+1), probe.Payload)
 			if withDelay {
 				time.Sleep(100 * time.Millisecond)
