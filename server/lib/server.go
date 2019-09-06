@@ -32,6 +32,7 @@ type Config struct {
 	Dst        string      // Ethernet address of the gateway network interface
 	IPHeader   string      // If client ips should be checked from e.g. an x-forwarded-for header
 	TraceFile  string      // file to log traces.
+	Debug      bool        // If diagnostic debugging should be enabled
 	TraceLog   *log.Logger `json:"-"`
 }
 
@@ -137,7 +138,7 @@ func NewServer(conf Config) *Server {
 	probe := &traas2.Probe{
 		Payload: []byte(redirect),
 	}
-	recorder, err := MakeRecorder(conf.Device, conf.Path, conf.ListenPort, probe)
+	recorder, err := MakeRecorder(conf.Device, conf.Path, conf.ListenPort, probe, conf.Debug)
 	if err != nil {
 		return nil
 	}

@@ -23,10 +23,11 @@ type Recorder struct {
 	parser   *gopacket.DecodingLayerParser
 	handlers cmap.ConcurrentMap
 	probe    *traas2.Probe
+	debug    bool
 }
 
 // MakeRecorder initializes the system / pcap listening thread for a given device.
-func MakeRecorder(netDev string, path string, port uint16, probe *traas2.Probe) (*Recorder, error) {
+func MakeRecorder(netDev string, path string, port uint16, probe *traas2.Probe, debug bool) (*Recorder, error) {
 	handle, err := pcap.OpenLive(netDev, 2048, false, pcap.BlockForever)
 	if err != nil {
 		return nil, err
@@ -54,7 +55,7 @@ func MakeRecorder(netDev string, path string, port uint16, probe *traas2.Probe) 
 	src := addrs[addrIdx].(*net.IPNet).IP
 	fmt.Printf("Using source of %v\n", src)
 
-	recorder := &Recorder{handle, path, ipv4Parser, cmap.New(), probe}
+	recorder := &Recorder{handle, path, ipv4Parser, cmap.New(), probe, debug}
 
 	//TODO: ICMP?
 	fmt.Printf("dst host %s and (icmp or (tcp dst port %d))", src.String(), port)
@@ -106,6 +107,9 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 							if trace.Recorded >= traas2.TraceMaxReplies {
 								// trace fully recorded
 								continue
+							}
+							if r.debug {
+								trace.Hops[trace.Recorded].Packet = packet
 							}
 							trace.Hops[trace.Recorded].IP = ipFrame.SrcIP
 							trace.Hops[trace.Recorded].TTL = uint8(v4.Id)

@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/willscott/traas2/server/lib"
+	server "github.com/willscott/traas2/server/lib"
 )
 
 var (
@@ -23,6 +23,7 @@ var (
 	device       = flag.String("device", "eth0", "inet device for pcap to use")
 	dstMAC       = flag.String("dstMAC", "000000000000", "Ethernet DST for sending")
 	originHeader = flag.String("originHeader", "", "Client IPs are forwarded in a http header")
+	debug        = flag.Bool("debug", false, "if true, full received packets are saved")
 	logFile      = flag.String("log", "", "where to log completed traces. If not set, will log to stdout")
 )
 
@@ -55,6 +56,7 @@ func main() {
 			Device:     *device,
 			Dst:        *dstMAC,
 			TraceFile:  *logFile,
+			Debug:      *debug,
 		})
 		if _, err := configHandle.Write(defaultConfig); err != nil {
 			log.Fatalf("Failed to write default config: %s", err)

@@ -3,6 +3,8 @@ package traas2
 import (
 	"net"
 	"time"
+
+	"github.com/google/gopacket"
 )
 
 // TraceMaxReplies indicates how many hops can be recorded for a trace.
@@ -24,6 +26,7 @@ type Hop struct {
 	TTL      uint8
 	IP       net.IP
 	Received time.Time
+	Packet   gopacket.Packet
 }
 
 // Route is a sortable list of hops
