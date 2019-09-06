@@ -47,9 +47,16 @@ func SetupSpoofingSockets(config Config) error {
 	return nil
 }
 
+func getRecordRoute() []byte {
+	route := make([]byte, 30)
+	// pointer
+	route[0] = 4
+
+	return route
+}
 func getTimestamp() []byte {
 	// per http://www.networksorcery.com/enp/protocol/ip/option004.htm
-	singleStamp := []byte{0xC4, 0x0C, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+	singleStamp := []byte{0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 
 	return singleStamp
 }
@@ -74,11 +81,11 @@ func SpoofTCPMessage(src net.IP, dest net.IP, request *layers.TCP, requestLength
 		Options: []layers.IPv4Option{layers.IPv4Option{
 			OptionType:   7,
 			OptionLength: 32,
-			OptionData:   make([]byte, 30),
+			OptionData:   getRecordRoute(),
 		},
 			layers.IPv4Option{
 				OptionType:   4,
-				OptionLength: 96,
+				OptionLength: 12,
 				OptionData:   getTimestamp(),
 			}},
 	}
