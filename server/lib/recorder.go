@@ -108,6 +108,7 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 								continue
 							}
 							if r.debug {
+								log.Printf("Recorded expiry from %s at ttl %d.\n", ipFrame.SrcIP, v4.Id)
 								trace.Hops[trace.Recorded].Packet = packet
 							}
 							trace.Hops[trace.Recorded].IP = ipFrame.SrcIP
