@@ -27,7 +27,7 @@ func TestProbe(t *testing.T) {
 		SrcPort: 8080,
 	}
 
-	err := SpoofTCPMessage(host, host, tcp, 512, 64, []byte(payload))
+	err := SpoofTCPMessage(host, host, tcp, 512, 64, []byte(payload), nil)
 	if err != nil {
 		t.Fatalf("Failed to spoof msg: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestProbe(t *testing.T) {
 	serializer := gopacket.NewSerializeBuffer()
 	gopacket.SerializeLayers(serializer, gopacket.SerializeOptions{FixLengths: true}, ip, tcp)
 	pkt := gopacket.NewPacket(serializer.Bytes(), layers.LayerTypeIPv4, gopacket.DecodeOptions{})
-	SpoofProbe(context.Background(), &traas2.Probe{Payload: []byte(payload)}, pkt, false)
+	SpoofProbe(context.Background(), &traas2.Probe{Payload: []byte(payload)}, pkt, nil, false)
 
 	// Non-blocking read of the channel to see if an immediate packet was sent.
 	select {

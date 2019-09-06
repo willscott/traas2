@@ -26,7 +26,9 @@ type Probe struct {
 type Hop struct {
 	TTL      uint8
 	IP       net.IP
+	Sent     time.Time `json:"-"`
 	Received time.Time
+	Latency  time.Duration
 	Packet   gopacket.Packet
 }
 

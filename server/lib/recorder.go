@@ -115,6 +115,7 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 							trace.Hops[trace.Recorded].IP = ipFrame.SrcIP
 							trace.Hops[trace.Recorded].TTL = uint8(v4.Id)
 							trace.Hops[trace.Recorded].Received = time.Now()
+							trace.Hops[trace.Recorded].Latency = time.Now().Sub(trace.Hops[trace.Recorded].Sent) / 2
 							trace.Recorded++
 						}
 					}
@@ -144,7 +145,7 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 				}
 
 				ctx, cancel := context.WithCancel(context.Background())
-				go SpoofProbe(ctx, r.probe, packet, true)
+				go SpoofProbe(ctx, r.probe, packet, trace, true)
 
 				trace.Cancel = cancel
 				trace.Sent = time.Now()
