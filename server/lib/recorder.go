@@ -98,8 +98,7 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 							for _, opt := range v4.Options {
 								if opt.OptionType == 7 {
 									log.Printf("route recording got us %x", opt.OptionData)
-								}
-								else if opt.OptionType == 4 {
+								} else if opt.OptionType == 4 {
 									log.Printf("timestamp got us %x", opt.OptionData)
 								}
 							}
@@ -118,7 +117,7 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 						}
 					}
 				} else {
-					log.Printf("ICMP code %d.%d received.", icmpframe.TypeCode.Type(), icmpframe.TypeCode.Code())
+					log.Printf("ICMP code %d.%d received from %s.", icmpframe.TypeCode.Type(), icmpframe.TypeCode.Code(), ipFrame.SrcIP)
 				}
 			}
 			continue
