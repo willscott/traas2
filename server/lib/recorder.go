@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -108,7 +109,7 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 								continue
 							}
 							if r.debug {
-								log.Printf("Recorded expiry from %s at ttl %d.\n", ipFrame.SrcIP, v4.Id)
+								log.Printf("Recorded expiry from %s at ttl %d.\n", ipFrame.SrcIP.String(), v4.Id)
 								trace.Hops[trace.Recorded].Packet = packet
 							}
 							trace.Hops[trace.Recorded].IP = ipFrame.SrcIP
@@ -142,8 +143,10 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 					continue
 				}
 
-				go SpoofProbe(r.probe, packet, true)
+				ctx, cancel := context.WithCancel(context.Background())
+				go SpoofProbe(ctx, r.probe, packet, true)
 
+				trace.Cancel = cancel
 				trace.Sent = time.Now()
 			}
 		}
@@ -171,5 +174,9 @@ func (r *Recorder) GetTrace(to net.IP) *traas2.Trace {
 
 // EndTrace cleans up after an active trace.
 func (r *Recorder) EndTrace(to net.IP) {
+	if val, ok := r.handlers.Get(to.String()); ok {
+		tr := val.(*traas2.Trace)
+		tr.Cancel()
+	}
 	r.handlers.Remove(to.String())
 }

@@ -1,6 +1,7 @@
 package traas2
 
 import (
+	"context"
 	"net"
 	"time"
 
@@ -43,4 +44,5 @@ type Trace struct {
 	Recorded uint16 `json:"-"`
 	Route    Route
 	Hops     [TraceMaxReplies]Hop `json:"-"`
+	Cancel   context.CancelFunc   `json:"-"`
 }
