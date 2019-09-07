@@ -1,5 +1,10 @@
 var el = document.getElementById('traceroute');
 
+function calcLatency(ns) {
+  let ms = ns / 1000000.0;
+  return +ms.toFixed(2) + "ms";
+};
+
 fetch('../start').then(function(resp) {
   return resp.text();
 }).then(function(body) {
@@ -21,7 +26,7 @@ fetch('../start').then(function(resp) {
   var next = document.createElement("div");
   var ih ="<h4>Route to " + data.To + "</h4><ul>";
   for (var i = 0; i < data.Route.length; i++) {
-    ih += "<li><b>" + data.Route[i].TTL +"</b> - " + data.Route[i].IP + "</li>";
+    ih += "<li><b>" + data.Route[i].TTL +"</b> - " + data.Route[i].IP + " - " + calcLatency(data.Route[i].Latency)+ "</li>";
   }
   ih += "</ul>";
   next.innerHTML = ih;

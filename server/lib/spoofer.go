@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"time"
 
@@ -46,8 +48,26 @@ func SetupSpoofingSockets(config Config) error {
 	return nil
 }
 
+func getRecordRoute() []byte {
+	// per http://www.networksorcery.com/enp/protocol/ip/option007.htm
+	route := make([]byte, 30)
+	// pointer
+	route[0] = 4
+
+	return route
+}
+
+func getTimestamp() []byte {
+	ts := make([]byte, 8)
+
+	t := time.Now().Unix()
+
+	binary.LittleEndian.PutUint32(ts[0:4], uint32(t))
+	return ts
+}
+
 // SpoofTCPMessage constructs and sends a tcp message sent in the same stream as 'request' with a specified payload.
-func SpoofTCPMessage(src net.IP, dest net.IP, request *layers.TCP, requestLength uint16, ttl byte, payload []byte) error {
+func SpoofTCPMessage(src net.IP, dest net.IP, request *layers.TCP, requestLength uint16, ttl byte, payload []byte, trace *traas2.Trace) error {
 	// Send legit packet.
 	buf := gopacket.NewSerializeBuffer()
 	opts := gopacket.SerializeOptions{
@@ -63,6 +83,14 @@ func SpoofTCPMessage(src net.IP, dest net.IP, request *layers.TCP, requestLength
 		SrcIP:    src,
 		DstIP:    dest,
 		Flags:    layers.IPv4DontFragment,
+		// Packets are dropped by router when record-route added as IP header.
+		/*
+			Options: []layers.IPv4Option{layers.IPv4Option{
+				OptionType:   7,
+				OptionLength: 32,
+				OptionData:   getRecordRoute(),
+			}},
+		*/
 	}
 	tcp := &layers.TCP{
 		SrcPort: request.DstPort,
@@ -72,10 +100,23 @@ func SpoofTCPMessage(src net.IP, dest net.IP, request *layers.TCP, requestLength
 		PSH:     true,
 		ACK:     true,
 		Window:  122,
+		Options: []layers.TCPOption{
+			layers.TCPOption{
+				OptionType:   8,
+				OptionLength: 10,
+				OptionData:   getTimestamp(),
+			},
+		},
 	}
-	tcp.SetNetworkLayerForChecksum(ip)
+	if err := tcp.SetNetworkLayerForChecksum(ip); err != nil {
+		return err
+	}
 	if err := gopacket.SerializeLayers(buf, opts, ip, tcp, gopacket.Payload(payload)); err != nil {
 		return err
+	}
+
+	if trace != nil {
+		trace.Hops[ttl-traas2.TraceShortestTTL].Sent = time.Now()
 	}
 	return SpoofIPv4Message(buf.Bytes())
 }
@@ -95,7 +136,7 @@ func SpoofIPv4Message(packet []byte) error {
 }
 
 // SpoofProbe will inject the message specified by probe in repsonse to a given TCP packet.
-func SpoofProbe(probe *traas2.Probe, inReplyTo gopacket.Packet, withDelay bool) {
+func SpoofProbe(ctx context.Context, probe *traas2.Probe, inReplyTo gopacket.Packet, trace *traas2.Trace, withDelay bool) {
 	ipFrame, ok := inReplyTo.Layer(layers.LayerTypeIPv4).(*layers.IPv4)
 	if !ok {
 		log.Printf("Asked to spoof but inReply had no ip frame")
@@ -109,10 +150,16 @@ func SpoofProbe(probe *traas2.Probe, inReplyTo gopacket.Packet, withDelay bool) 
 
 	// probes are sent in pairs of (ttl,ttl+1) with delays to prevent flood triggering
 	for i := traas2.TraceShortestTTL; i < traas2.TraceLongestTTL; i++ {
-		SpoofTCPMessage(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), byte(i), probe.Payload)
-		SpoofTCPMessage(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), byte(i+1), probe.Payload)
-		if withDelay {
-			time.Sleep(100 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			if err := SpoofTCPMessage(ipFrame.DstIP, ipFrame.SrcIP, tcpFrame, uint16(len(tcpFrame.Payload)), byte(i), probe.Payload, trace); err != nil {
+				log.Printf("Failed to send Pkt: %v\n", err)
+			}
+			if withDelay {
+				time.Sleep(100 * time.Millisecond)
+			}
 		}
 	}
 }

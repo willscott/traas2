@@ -2,8 +2,10 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -22,10 +24,11 @@ type Recorder struct {
 	parser   *gopacket.DecodingLayerParser
 	handlers cmap.ConcurrentMap
 	probe    *traas2.Probe
+	debug    bool
 }
 
 // MakeRecorder initializes the system / pcap listening thread for a given device.
-func MakeRecorder(netDev string, path string, port uint16, probe *traas2.Probe) (*Recorder, error) {
+func MakeRecorder(netDev string, path string, port uint16, probe *traas2.Probe, debug bool) (*Recorder, error) {
 	handle, err := pcap.OpenLive(netDev, 2048, false, pcap.BlockForever)
 	if err != nil {
 		return nil, err
@@ -53,7 +56,7 @@ func MakeRecorder(netDev string, path string, port uint16, probe *traas2.Probe) 
 	src := addrs[addrIdx].(*net.IPNet).IP
 	fmt.Printf("Using source of %v\n", src)
 
-	recorder := &Recorder{handle, path, ipv4Parser, cmap.New(), probe}
+	recorder := &Recorder{handle, path, ipv4Parser, cmap.New(), probe, debug}
 
 	//TODO: ICMP?
 	fmt.Printf("dst host %s and (icmp or (tcp dst port %d))", src.String(), port)
@@ -91,16 +94,33 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 						if handler, ok := r.handlers.Get(v4.DstIP.String()); ok {
 							//fmt.Printf("Matched icmp to handler.\n")
 							trace := handler.(*traas2.Trace)
+
+							// see if we got anything interesting in packet options
+							for _, opt := range v4.Options {
+								if opt.OptionType == 7 {
+									log.Printf("route recording got us %x", opt.OptionData)
+								} else if opt.OptionType == 4 {
+									log.Printf("timestamp got us %x", opt.OptionData)
+								}
+							}
+
 							if trace.Recorded >= traas2.TraceMaxReplies {
 								// trace fully recorded
 								continue
 							}
+							if r.debug {
+								log.Printf("Recorded expiry from %s at ttl %d.\n", ipFrame.SrcIP.String(), v4.Id)
+								trace.Hops[trace.Recorded].Packet = packet
+							}
 							trace.Hops[trace.Recorded].IP = ipFrame.SrcIP
 							trace.Hops[trace.Recorded].TTL = uint8(v4.Id)
 							trace.Hops[trace.Recorded].Received = time.Now()
+							trace.Hops[trace.Recorded].Latency = time.Now().Sub(trace.Hops[trace.Recorded].Sent) / 2
 							trace.Recorded++
 						}
 					}
+				} else {
+					log.Printf("ICMP code %d.%d received from %s.", icmpframe.TypeCode.Type(), icmpframe.TypeCode.Code(), ipFrame.SrcIP)
 				}
 			}
 			continue
@@ -124,8 +144,10 @@ func (r *Recorder) watch(incoming *gopacket.PacketSource) error {
 					continue
 				}
 
-				go SpoofProbe(r.probe, packet, true)
+				ctx, cancel := context.WithCancel(context.Background())
+				go SpoofProbe(ctx, r.probe, packet, trace, true)
 
+				trace.Cancel = cancel
 				trace.Sent = time.Now()
 			}
 		}
@@ -153,5 +175,9 @@ func (r *Recorder) GetTrace(to net.IP) *traas2.Trace {
 
 // EndTrace cleans up after an active trace.
 func (r *Recorder) EndTrace(to net.IP) {
+	if val, ok := r.handlers.Get(to.String()); ok {
+		tr := val.(*traas2.Trace)
+		tr.Cancel()
+	}
 	r.handlers.Remove(to.String())
 }
