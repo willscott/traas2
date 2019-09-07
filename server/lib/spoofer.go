@@ -116,7 +116,7 @@ func SpoofTCPMessage(src net.IP, dest net.IP, request *layers.TCP, requestLength
 	}
 
 	if trace != nil {
-		trace.Hops[ttl].Sent = time.Now()
+		trace.Hops[ttl-traas2.TraceShortestTTL].Sent = time.Now()
 	}
 	return SpoofIPv4Message(buf.Bytes())
 }
