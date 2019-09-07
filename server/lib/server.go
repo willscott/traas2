@@ -70,20 +70,33 @@ func (s *Server) EndHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, s.config.Path+"/error", 302)
 		return
 	}
+	closeNotifier, ok := w.(http.CloseNotifier)
+	if !ok {
+		http.Redirect(w, r, s.config.Path+"/error", 302)
+	}
 
 	if t := s.recorder.GetTrace(ip); t != nil {
-		s.recorder.EndTrace(ip)
-		//sort and create route from recorded hops.
-		hops := make(traas2.Route, t.Recorded)
-		for i := uint16(0); i < t.Recorded; i++ {
-			hops[i] = t.Hops[i]
-		}
-		sort.Sort(hops)
-		t.Route = hops
+		t.Cancel()
 
-		if b, err := json.Marshal(t); err == nil {
-			w.Write(b)
-			s.config.TraceLog.Println(string(b))
+		// Wait an extra second for the trace to get filled in.
+		delayTime := time.Millisecond * 500
+		select {
+		case <-time.After(delayTime):
+			s.recorder.EndTrace(ip)
+			//sort and create route from recorded hops.
+			hops := make(traas2.Route, t.Recorded)
+			for i := uint16(0); i < t.Recorded; i++ {
+				hops[i] = t.Hops[i]
+			}
+			sort.Sort(hops)
+			t.Route = hops
+
+			if b, err := json.Marshal(t); err == nil {
+				w.Write(b)
+				s.config.TraceLog.Println(string(b))
+			}
+		case <-closeNotifier.CloseNotify():
+			return
 		}
 	}
 }
